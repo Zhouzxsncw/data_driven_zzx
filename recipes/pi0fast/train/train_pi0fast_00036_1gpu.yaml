@@ -1,0 +1,56 @@
+# PI0-FAST TongBot 00036 / gpu-master 单卡（RTX PRO 6000 96GB，与 motus 推理共卡，~53GB 可用）
+# 预设: recipes/pi0fast/train/patch_config_fast_tongbot.py 注册的 pi0_fast_tongbot
+# 关键决策:
+#   - action_horizon=15 / max_token_len=280（FAST tokenize 实测 16D×15≈250 token；h=50 需 572 超限）
+#   - batch_size 16 全参（motus 推理服务已停，独占 96GB；XLA 预分配 0.75 留 ~22GB
+#     给 PI0-FAST 推理服务共存）
+#   - save_full_interval 8000：常规 save 仅写推理 params（轻量），full 才写 optimizer state
+config_name: pi0_fast_tongbot
+framework: jax
+
+exp_name: 00036_pi0fast_bs16_lr2.5e-5_ah15_1gpu
+project_name: openpi
+checkpoint_base_dir: ./checkpoints
+assets_base_dir: ./assets
+
+batch_size: 16
+num_train_steps: 20000
+seed: 42
+num_workers: 8
+log_interval: 50
+save_interval: 2000
+save_full_interval: 8000
+keep_period: 4000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 1
+ema_decay: 0.99
+
+model:
+  action_horizon: 15
+  max_token_len: 280
+
+lr_schedule:
+  warmup_steps: 1000
+  peak_lr: 2.5e-5
+  decay_steps: 20000
+  decay_lr: 2.5e-6
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /home/xk/dataset/00036_20260804_RM_01_yj_v21
+  assets:
+    assets_dir: /home/xk/dataset/00036_20260804_RM_01_yj_v21
+    asset_id: "."
+  default_prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

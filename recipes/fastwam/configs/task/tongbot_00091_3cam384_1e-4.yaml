@@ -1,0 +1,39 @@
+# @package _global_
+# gpu-master 单卡 RTX PRO 6000 96GB · TongBot 00091
+# 对齐 00036 FastWAM：Wan2.2-TI2V-5B + ActionDiT，16D 绝对关节，3cam RoboTwin 384×320。
+# 00091 比 00036 大约 4× 帧（500 ep / 208348 帧），max_steps 提到 30000。
+
+defaults:
+  - override /data: tongbot_3cam
+  - override /model: fastwam
+  - _self_
+
+data:
+  train:
+    dataset_dirs:
+      - /home/xk/dataset/00091_20260903_RM_01_yj_21
+    text_embedding_cache_dir: ./data/text_embeds_cache/tongbot_00091
+
+batch_size: 4
+num_workers: 4
+
+model:
+  mot_checkpoint_mixed_attn: false
+  redirect_common_files: false
+  load_text_encoder: false
+
+lr_scheduler_type: "cosine"
+learning_rate: 1e-4
+num_epochs: 10
+max_steps: 30000
+log_every: 10
+save_every: 2500
+eval_every: 30000
+
+gradient_accumulation_steps: 4
+weight_decay: 1e-2
+resume: null
+
+wandb:
+  enabled: false
+  mode: offline

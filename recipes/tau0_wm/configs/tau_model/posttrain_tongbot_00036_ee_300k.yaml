@@ -1,0 +1,130 @@
+# τ0-WM TongBot 00036 EE 20D **30 万步续训**配置（2026-09-16）。
+#
+# 从 tau0wm_vam5b_ee_rela_192x256_bs1/step_30000（首个 30k 收官 ckpt）继续训练到
+# 全局 300000 步。要点：
+#   * 权重续训：diffusion_model.model_path 指向 step_30000 目录（HF sharded 格式，
+#     load_checkpoints 实测可吃，mismatched/missing/unexpected 全空）。
+#   * 步数续编号：latest_global_step=30000 + latest_epoch=0（posttrain.py 训练循环
+#     从这里恢复 global_step，进度条 30000→300000；optimizer 无 state 可接——
+#     上一个 30k 跑的 %steps_to_save 块是死代码从未落盘，只有收官权重）。
+#   * 中途落盘：依赖 fork patch per-step-blocks（patch_tau_repo.py 补丁 5）把
+#     %steps_to_save 移回内层循环，否则本配置依然全程零落盘。
+#   * lr：constant_with_warmup 无衰减期，续训无 scheduler horizon 问题；warmup 1000
+#     步会在续训头 ~5000 步内从 0 重新爬到 5e-5（scheduler 全新、按新进程数 5 缩放）。
+allow_tf32: false                         # 同 EE 配置：官方 yaml 有这一项，缺了 AttributeError
+batch_size: 1                             # 80G 卡实测 bs≥2 必 OOM（峰值 reserved 64.78G）
+beta1: 0.9
+beta2: 0.95
+beta3: 0.999
+caption_dropout_p: 0.06
+data:
+  public_args:
+    action_chunk: 33
+    action_space: eef6d
+    action_type: relative
+    chunk: 9
+    ignore_seek: false
+  train:
+  - configs/data/tongbot/00036_ee_rela.yaml
+  val:
+  - configs/data/tongbot/00036_ee_rela.yaml
+dataloader_num_workers: 8
+deepspeed:
+  bf16:
+    enabled: true
+  fp16:
+    enabled: false
+  gradient_clipping: 1.0
+  zero_optimization:
+    stage: 1
+diffusion_model:
+  config:
+    action_dim: 1024
+    action_ffn_dim: 2048
+    action_in_dim: 20
+    action_max_seq_len: 60
+    action_num_heads: 16
+    cross_attn_norm: true
+    dim: 3072
+    eps: 1.0e-06
+    ffn_dim: 14336
+    freq_dim: 256
+    in_dim: 48
+    model_type: ti2v
+    num_heads: 24
+    num_layers: 30
+    out_dim: 48
+    patch_size:
+    - 1
+    - 2
+    - 2
+    qk_norm: true
+    text_dim: 4096
+    text_len: 512
+    use_ae: true
+    window_size:
+    - - -1
+      - 1
+  model_path: /data1/tau0wm/outputs/tongbot_00036_ee/tau0wm_vam5b_ee_rela_192x256_bs1/step_30000
+diffusion_model_class: WanModel
+diffusion_model_class_path: models/wan_2_2_models/transformers/model.py
+diffusion_scheduler_class: FlowUniPCMultistepScheduler
+diffusion_scheduler_class_path: models/wan_2_2_models/scheduler/fm_solvers_unipc.py
+epsilon: 1e-8
+flow_logit_mean: 0.0
+flow_logit_std: 1.0
+gradient_accumulation_steps: 1
+gradient_checkpointing: true
+latest_epoch: 0                           # [续训] global_step/epoch 从上个 run 的收官值恢复
+latest_global_step: 30000                 # [续训] 进度条 30000→300000，fleet 监控按此算进度
+load_weights: true
+logging_dir: logs
+lr: 5e-5
+lr_num_cycles: 1
+lr_power: 1.0
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 1000
+max_grad_norm: 1.0
+mixed_precision: bf16
+model_name: tau_train_posttrain_tongbot_00036_ee_300k
+nccl_timeout: 1000
+noisy_video: false
+num_inference_step: 10
+optimizer: adamw
+optimizer_8bit: false
+optimizer_torchao: false
+output_dir: /data1/tau0wm/outputs/tongbot_00036_ee   # 首个 30k run 的目录原样保留
+pin_memory: true
+pipeline_class: WanTI2V
+pipeline_class_path: models/wan_2_2_models/pipeline/textimage2video.py
+repeat_in_batch: 1
+report_to: None
+return_action: true
+return_video: true
+scale_lr: false
+seed: 3331459158
+steps_to_log: 20
+steps_to_val: 100000000                   # val 仍关闭（生成式 validate 无人值守有风险）；
+                                          # 保存已被 per-step-blocks 与 val 解耦，不再连带
+steps_to_save: 20000                      # [改] 300k/20k = 15 份 step ckpt ×11G ≈ 165G
+                                          # + latest_accelerator_state（覆盖写）≈ 55G，
+                                          # /data1 余 903G 无压力；20k 步 ≈ 3.9h 一档
+sub_folder: tau0wm_vam5b_ee_rela_192x256_bs1_300k
+text_encoder:
+  checkpoint_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+  text_len: 512
+  tokenizer_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/google/umt5-xxl
+textenc_class: T5EncoderModel
+textenc_class_path: models/wan_2_2_models/text_encoder/t5.py
+tracker_name: tau_trainer_action
+train_epochs: 10000
+train_mode: video+action
+train_steps: 300000                       # [改] 全局 300000（含已跑的 30000）
+use_color_jitter: true
+use_deepspeed: false
+vae_class: Wan2_2_VAE_Batch
+vae_class_path: models/wan_2_2_models/vae/vae2_2.py
+vae_encoding_mode: 3dvae
+vae_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+val_shuffle: true
+weight_decay: 1e-5

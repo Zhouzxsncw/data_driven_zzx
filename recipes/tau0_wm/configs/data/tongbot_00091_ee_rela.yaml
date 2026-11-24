@@ -1,0 +1,33 @@
+data_class: CustomLeRobotDataset
+data_class_path: data/example_dataset.py
+data:
+  # TongBot 00091 的 EE 20D 版（joint→RM75 FK + τ0-WM 列约定 rot6d，
+  # 见 convert_00036_ee.py；h100 上由 h100/convert_00091_ee_on_h100.sh 生成）。
+  # 00091 = 00086+00089 合并，药盒抽屉，500 ep / 208348 帧。
+  data_roots: ["/data1/tau0wm/datasets/00091_rm75_ee_tau0wm"]
+
+  sample_size: [192, 256]
+  n_view: 3
+  valid_cam: ['observation.images.front', 'observation.images.left', 'observation.images.right']
+
+  fps: 15
+  chunk: 9
+  action_chunk: 33
+  action_type: relative
+  action_space: eef6d
+  ignore_seek: False
+  action_key: action.ee
+  state_key: observation.state.ee
+  return_action: True
+  norm_action: True
+  filter_action: True
+
+  video_backend: pyav
+
+  dual_arm: True
+  state_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  state_gripper_index: [9, 19]
+  action_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  action_gripper_index: [9, 19]
+
+  statistic_files: ["configs/data/stat_file/tongbot_00091_ee_rela.json"]

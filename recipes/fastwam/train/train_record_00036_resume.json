@@ -1,0 +1,107 @@
+{
+  "schema": "fastwam.train.record",
+  "schema_version": 1,
+  "run_name": "tongbot_00036_3cam384_1e-4",
+  "machine": "gpu-master RTX PRO 6000 Blackwell 96GB / 188G RAM / 64G swap / 20 cores",
+  "status": "running",
+  "started_at": "2026-09-14T21:15:46+08:00",
+  "run_id": "2026-09-14_21-15-46",
+  "trainer_pid": 1824986,
+  "output_dir": "/data/FastWAM_runs/tongbot_00036",
+  "train_log": "/data/FastWAM_runs/tongbot_00036/logs/train_2026-09-14_21-15-46.log",
+  "launch_cmd": "FASTWAM_RESUME_DIAG=1 bash /home/xk/data_Driven/recipes/fastwam/train/start_train_00036_resume.sh",
+  "resume": {
+    "kind": "full_training_state",
+    "state_dir": "/data/FastWAM_runs/tongbot_00036/checkpoints/state/step_010000",
+    "global_step": 10000,
+    "epoch": 3,
+    "batch_in_epoch": 2164,
+    "sample_offset": 8656,
+    "optimizer_restored": true,
+    "scheduler_restored": true,
+    "rng_restored": true
+  },
+  "previous_run": {
+    "dir": "/home/xk/VLA/FastWAM/runs/tongbot_00036_3cam384_1e-4/2026-09-05_22-12-39",
+    "stopped_at": "2026-09-07T08:07:00+08:00",
+    "stopped_reason": "SIGTERM（让位给推理服务），停在 step 11550/20000",
+    "weights_kept": "step_010000.pt (12G, 根分区)；state 由 09-10 /data/_cleanup_20260910.sh 迁到 /data/FastWAM_runs"
+  },
+  "dataset": {
+    "name": "00036_20260804_RM_01_yj_v21",
+    "path": "/home/xk/dataset/00036_20260804_RM_01_yj_v21",
+    "dataset_size_per_split": 50440
+  },
+  "hparams": {
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "learning_rate": 1e-4,
+    "lr_scheduler_type": "cosine",
+    "max_steps": 20000,
+    "save_every": 2500,
+    "eval_every": 20000,
+    "num_workers": 4,
+    "mixed_precision": "bf16",
+    "zero_stage": 1,
+    "cpu_offload": true,
+    "offload_pin_memory": false,
+    "dataloader_mp_context": "spawn",
+    "nproc": 1
+  },
+  "patches": {
+    "lr_rebind": {
+      "script": "recipes/fastwam/train/patch_resume_lr_rebind.py",
+      "target": "/home/xk/VLA/FastWAM/src/fastwam/trainer.py",
+      "backup": "trainer.py.orig_pre_lr_rebind",
+      "why": "Optimizer.load_state_dict 会换掉 param_group 字典对象，resume 前构造的 LR scheduler 于是把 lr 写进孤儿字典 —— 续训后半程 cosine 退火整体冻结在 ckpt 里那个值（实测钉死 5.46e-05）。load_state 后把所有 scheduler 的 .optimizer 指回活的 optimizer 并补齐 initial_lr。",
+      "verified": "step 10010/10020/10030/10040 的 lr = 5.45/5.44/5.43/5.43e-05，与 09-07 停跑前历史值逐位一致（未打补丁时恒为 5.46e-05）"
+    },
+    "resume_memdiag": {
+      "script": "同 patch_resume_lr_rebind.py（第二个 hunk，env FASTWAM_RESUME_DIAG=1 才打印）",
+      "reading": "after load_state RssAnon 106->106G RssShmem 0G VmSwap 0G gc_freed=63 | optim cpu_tensors=2 44.9G | MemAvailable=71G",
+      "conclusion": "load_state 之后没有可回收的残留（gc.collect 不降 RssAnon），106G 是 ZeRO-1 CPU offload 的真实常驻，不是泄漏"
+    },
+    "dataloader_mp_ctx": {
+      "script": "recipes/fastwam/train/patch_dataloader_mp_ctx.py",
+      "backup": "trainer.py.orig_pre_mp_ctx",
+      "why": "把 DataLoader 的 multiprocessing_context 做成 env 可调（FASTWAM_DLOADER_MP）；fork 时 worker 与 106G 父进程 100% 共享地址空间，worker 写脏继承页触发 COW 复制，40s 内把机器 anon 从 117G 推到 180G。spawn 下 worker 只收 1.3MiB 数据集 pickle（RobotVideoDataset 实测可 pickle、构建 7.8s），独占内存降到 1-4G 合计。",
+      "verified": "worker_rss_sum 从 214G(2 个) 降到 2-4G(4 个)，worker_priv_dirty≈0，machine_anon 稳在 123-125G"
+    }
+  },
+  "oom_postmortem": {
+    "attempts_killed": [
+      "2026-09-14 20:30:05 (pin_memory=true, fork, workers=4) — 20:34:49 SIGKILL，kernel anon-rss 52.6G + shmem-rss 90.5G（cudaHostAlloc 的 pinned 内存计作 shmem 且不可换页）",
+      "2026-09-14 20:48:26 (pin_memory=false, fork, workers=4) — 20:52:33 SIGKILL，shmem 降到 0.6G 但 anon 110G，4 个 pt_data_worker 各 53G RSS（COW 脏页），机器 anon 190G + 64G swap 耗尽",
+      "2026-09-14 20:58:47 (pin_memory=false, fork, workers=2) — 21:02:56 SIGKILL，worker RSS 涨到 107G/个、机器 anon 182G：减 worker 数只推迟越界，不解决脏页速率"
+    ],
+    "root_cause": "两个独立因素叠加：(1) offload_optimizer.pin_memory=true 把 72G 优化器状态钉成不可换页内存；(2) 载入后父进程常驻 106G，默认 fork 的 dataloader worker 在 COW 下把这 106G 逐步复制一遍。任何单一手段都不够，必须 pin_memory=false + spawn 一起上。",
+    "no_root_note": "无 sudo（sudo -n 需密码），加不了 swapfile、改不了 vm.overcommit/swappiness，只能从进程侧压峰值"
+  },
+  "resume_verification": {
+    "step_10010": {"resumed": "loss=0.3483 action=0.0917 video=0.2566 lr=5.45e-05", "history": "loss=0.3482 action=0.0916 video=0.2567 lr=5.45e-05"},
+    "step_10020": {"resumed": "loss=0.3042 action=0.0823 video=0.2219 lr=5.44e-05", "history": "loss=0.3042 action=0.0824 video=0.2218"},
+    "step_10030": {"resumed": "loss=0.2207 action=0.0610 video=0.1597 lr=5.43e-05", "history": "loss=0.2207"},
+    "conclusion": "逐步 loss 与停跑前历史值一致（末位舍入差），lr 序列也回到 cosine 上 —— 权重/优化器/RNG/dataloader 位置全部还原，是真续训。"
+  },
+  "throughput": {
+    "sec_per_step_now": 13.6,
+    "gpu_util_avg_pct": 37,
+    "reason": "机器上另有 recipes/tau0_wm/verify_ee_dataset.py --full-scan（pid 1385201，20:33 起跑）长期占 8.5 核，20 核机器 load avg 23.8，dataloader 与 CPU-Adam 都抢不到核；不是本次配置引入的回退",
+    "sec_per_step_reference": "pin_memory=true 时历史与本次 run1 均为 10.3-10.5 s/step",
+    "eta_hours_now": 41,
+    "eta_finish_at": "2026-09-16T14:30:00+08:00",
+    "action": "verify_ee_dataset 跑完后重看 s/step；若仍 >12 s/step 再考虑把 ACCEL_CFG 换回 pin_memory=true（spawn 已消除 COW，90G pinned + 52G anon ≈ 150G，理论可容纳）"
+  },
+  "disk_policy": {
+    "reason": "一份 accelerate state ≈80G（72G optimizer + 13G model），/data 起跑时剩 152G；save_every=2500 → 本次续训连存 12500/15000/17500/20000 四份 = 320G，必须轮转。",
+    "pruner": "bash recipes/fastwam/train/keep_last_state.sh（KEEP=1，每 300s，日志 logs/keep_last.log，当前 pid 见 ps）",
+    "stale_partial_handling": "本轮加固：被 OOM 打断的半成品 state 目录（无 trainer_state.json）不会被完整性强校验列出、永远轮转不到 → 新增按「步数严格小于最新完整 state 且 30min 无写入」清理；步数 >= 最新完整者只 WARN 不删（可能正在写）。已在合成目录上用 DRY_RUN 验证两条分支。",
+    "expected_final_footprint": "weights 4x12G + 最新 state 80G ≈ 128G"
+  },
+  "watch_notes": [
+    "起跑后 5 分钟是危险窗口（load_state 峰值 + worker 创建）。判定标准：mem_probe.log 里 machine_anon 稳定在 ~124G、avail 不再单调下降、swapfree 保持 53G。",
+    "第一次存盘在 step 12500（约 09-15 06:30，按 13.6 s/step）；存盘会再要 80G，届时 free 会掉到 ~72G，随后 keep_last 删掉 step_010000。别在那几分钟里手工往 /data 写大文件。",
+    "若再被 SIGTERM/OOM：重跑前把 RESUME= 指到当时最新的 state/step_*；trainer.py 上两个补丁保持原位（自检会拦住未打补丁的起跑）。",
+    "回退手段：ACCEL_CFG=scripts/accelerate_configs/accelerate_zero1_cpuoffload.yaml FASTWAM_DLOADER_MP=fork 可完全回到原配置，但本机 188G 内存下 resume 会重现 OOM。"
+  ]
+}

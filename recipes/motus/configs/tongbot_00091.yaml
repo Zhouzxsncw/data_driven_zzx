@@ -1,0 +1,117 @@
+# TongBot 00091 抽屉药盒 — h100-103 8×H100 80GB
+# 数据集: LeRobot v2.1, 500 episodes, 208348 frames, 15fps, 16D, 3 cams
+# 相机: front/left/right → Motus three_cam T 拼图（上 front，下 left|right），再 pad 到 384×320
+# 启动: NPROC=8 CONFIG_FILE=configs/tongbot_00091.yaml bash /data1/motus/recipes/launch_train_h100.sh
+common:
+  action_dim: 16         # TongBot 16D: left7 + right7 + gripper2
+  state_dim: 16
+
+  num_video_frames: 8
+  video_height: 384
+  video_width: 320
+
+  # 15fps 数据：每 3 帧取 1 帧 → 5fps; video:action = 2:1
+  global_downsample_rate: 3
+  video_action_freq_ratio: 2
+
+dataset:
+  type: "lerobot"
+  max_episodes: null
+  image_aug: false
+  task_mode: "multi"
+  # multi 模式下 root 必须是父目录（os.listdir(root) 枚举 task），task_name 精确指定 00091
+  # （/data1/dataset 下有 70+ 个数据集，null 会全部加载）
+  task_name: "00091_20260903_RM_01_yj_21"
+
+  params:
+    repo_id: "00091_20260903_RM_01_yj_21"
+    root: "/data1/dataset"
+
+    embodiment_type: "tong_dual_arm_00091"
+    enable_t5_fallback: true
+    t5_wan_path: "/data1/motus/Motus/pretrained_models"
+    t5_folder_name: "t5_embedding"
+    t5_text_len: 512
+
+model:
+  wan:
+    config_path: "/data1/motus/Motus/pretrained_models/Motus_Wan2_2_5B_pretrain"
+    checkpoint_path: "/data1/motus/Motus/pretrained_models/Motus_Wan2_2_5B_pretrain"
+    vae_path: "/data1/motus/Motus/pretrained_models/Wan2.2-TI2V-5B/Wan2.2_VAE.pth"
+    precision: "bfloat16"
+  vlm:
+    checkpoint_path: "/data1/motus/Motus/pretrained_models/Qwen3-VL-2B-Instruct"
+    config_path: "/data1/motus/Motus/pretrained_models/Qwen3-VL-2B-Instruct"
+    precision: "bfloat16"
+    frozen: true
+  action_expert:
+    hidden_size: 1024
+    ffn_dim_multiplier: 4
+    norm_eps: 1e-5
+  und_expert:
+    hidden_size: 512
+    ffn_dim_multiplier: 4
+    norm_eps: 1e-5
+    vlm:
+      input_dim: 2048
+      projector_type: "mlp3x_silu"
+  time_distribution:
+    timestep_sample_method: "logit_normal"
+    sigmoid_scale: 1.0
+    min_t: 0.0
+    max_t: 1.0
+  inference:
+    num_inference_timesteps: 10
+  loss_weights:
+    video_loss_weight: 1.0
+    action_loss_weight: 1.0
+  ema:
+    enabled: false
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_value: 0.0
+    max_value: 0.9999
+
+training:
+  # 8×H100: per-card bs=4 → 全局 batch 32（对齐 jiangsuan-4 已验证的全局 32 + lr 5e-5 配方）
+  batch_size: 4
+  max_steps: 100000
+  learning_rate: 5.0e-5
+  weight_decay: 0.01
+
+  scheduler_type: "linear"
+  warmup_steps: 200
+  cycle_length: 5000000
+  f_max: 0.99
+  f_min: 0.4
+
+  grad_clip_norm: 0.5
+  use_amp: true
+  find_unused_parameters: false
+
+system:
+  # /data1 只剩 ~366G，而 Motus-5B 单份 ckpt（DeepSpeed 分片 + rank0 pytorch_model_0.bin）
+  # 实测预算 60~80G → 大输出必须落 /data/train_data（h100-103 上 zgyd 唯一可写的大盘）
+  checkpoint_dir: "/data/train_data/motus-outputs/00091/checkpoints"
+  log_level: "INFO"
+
+  log_interval: 10
+  save_interval: 1000
+  val_interval: 500
+
+  # 192 核 / 8 rank
+  num_workers: 8
+  pin_memory: true
+
+logging:
+  report_to: "tensorboard"
+  wandb_project: "motus"
+  tensorboard_log_dir: "/data/train_data/motus-outputs/00091/tensorboard"
+  run_name: "tongbot_00091"
+
+resume:
+  checkpoint_path: null
+
+finetune:
+  checkpoint_path: /data1/motus/Motus/pretrained_models/Motus

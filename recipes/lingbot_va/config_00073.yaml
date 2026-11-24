@@ -1,0 +1,59 @@
+# LingBot-VA 00073 本机推理（NVIDIA RTX PRO 6000 Blackwell 96GB）
+# 权重: 江算 16 卡 00073_va_16gpu_w30 checkpoint_step_500
+# 架构对齐该次训练：attn_window=30, guidance=1, cobot_16d_tshape, 通道 0-15。
+
+experiment_name: lingbot_va_00073_infer_local
+
+model:
+  pretrained_model_path: /home/xk/VLA/h100_ckpts/00073_va_16gpu_w30/checkpoint_step_500/transformer
+  base_model_path: /home/xk/VLA/lingbot-va-pretrained/lingbot-va-base
+  param_dtype: bfloat16
+  enable_offload: false
+  offload_vae: false
+
+server:
+  host: "0.0.0.0"
+  port: 1234
+  infer_mode: server
+
+architecture:
+  env_type: cobot_16d_tshape
+  attn_window: 30
+  frame_chunk_size: 2
+  height: 256
+  width: 320
+  patch_size: [1, 2, 2]
+
+action:
+  action_dim: 30
+  action_per_frame: 16
+  used_action_channel_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  action_norm_method: quantiles
+
+inference:
+  # 训练默认 25/50。50/100 一包约 8–10s，降回默认换速度。
+  num_inference_steps: 25
+  video_exec_step: -1
+  action_num_inference_steps: 50
+  snr_shift: 5.0
+  action_snr_shift: 1.0
+  guidance_scale: 1
+  action_guidance_scale: 1
+  num_chunks_to_infer: 4
+  decode_pred_video: false
+  decode_pred_video_max_chunks: 8
+
+camera:
+  obs_cam_keys:
+    - observation.images.front
+    - observation.images.left
+    - observation.images.right
+
+norm_stat:
+  q01: [-2.4274, -1.8115, -0.5321, -1.3922, 0.2850, -1.9851, -1.6165, 1.4323, 0.5660, -0.3632, -0.5198, -2.2707, 0.7457, -0.0898, 0.0568, 0.0036, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  q99: [-1.4321, -0.7026, 0.8394, 0.4893, 1.7533, -0.6289, 0.4129, 2.1711, 1.8209, 0.7949, 1.5997, -0.5536, 1.8669, 2.1373, 1.0000, 0.9988, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+test:
+  input_img_path: /home/xk/VLA/lingbot-va-infer/example_images
+  save_root: /home/xk/VLA/lingbot-va-infer/results_00073
+  prompt: "Using both hands, pick up the courier items from the green conveyor belt. Place the white courier bags into the left box and the brown courier boxes into the right box."

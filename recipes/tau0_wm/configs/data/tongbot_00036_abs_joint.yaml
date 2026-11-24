@@ -1,0 +1,42 @@
+data_class: CustomLeRobotDataset
+data_class_path: data/example_dataset.py
+data:
+  # 00036 的 v3.0 修正树（由 recipes/tau0_wm/make_dataset_root.sh 生成）：
+  #   原 v2.1→v3.0 转换把任务文本留在列 __index_level_0__ 里、索引退化成整数，
+  #   而 τ0-WM 用 meta.tasks.iloc[idx].name 取 caption，会拿到 "0" 而不是真指令。
+  data_roots: ["/home/xk/dataset/00036_v30_for_tau0wm"]
+
+  # 单视图 192×256（原始 480×640 的 3:4 等比缩放），与官方 taco 示例一致。
+  # 必须能被 32 整除：Wan2.2 VAE 16× 空间压缩 × patch 2。
+  # 3 个视图各自独立过 VAE，再在宽度维拼接：latent 12×16 → 12×48 → patch 后 6×24 = 144 token/帧。
+  sample_size: [192, 256]
+  n_view: 3
+  valid_cam: ['observation.images.cam_mid', 'observation.images.cam_left', 'observation.images.cam_right']
+
+  fps: 15
+  chunk: 9
+  action_chunk: 33
+  action_type: absolute
+  action_space: joint
+  ignore_seek: False
+  action_key: action
+  state_key: observation.state
+  return_action: True
+  norm_action: True
+  filter_action: True
+
+  # 00036 是 av1 编码，本机统一走 pyav（与 fastwam / gigaworld 的 00036 配置一致）
+  video_backend: pyav
+
+  # TongBot 双臂
+  dual_arm: True
+  # 原始 16D 布局：ljoint1-7 (0-6) | 右臂 joint1-7 (7-13) | 左爪 gripper (14) | 右爪 right_gripper (15)
+  # dataset 内部重排成 [左臂7, 左爪1, 右臂7, 右爪1] = 16 维，这才是喂给模型与统计文件的顺序
+  state_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  state_gripper_index: [14, 15]
+  action_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  action_gripper_index: [14, 15]
+
+  # 由 scripts/compute_stat.py 生成（见 recipes/tau0_wm/README.md）；
+  # mean/std 已是重排后的 16 维顺序，长度必须等于 action_in_dim
+  statistic_files: ["configs/data/stat_file/tongbot_00036_abs.json"]

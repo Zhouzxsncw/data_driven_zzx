@@ -1,0 +1,53 @@
+========================================================================
+【本次推理怎么配的 — 核心看这里】
+========================================================================
+act_left_arm_pick_place_direct  |  act  |  fps=15  n_action_steps=15  tasks/组=20
+ckpt: /path/to/checkpoints/020000/pretrained_model
+prompt: Use the left gripper to pick up the toy and put it into the box.
+
+【一眼摘要】
+  夹爪控制 = udp    夹爪观测 = udp    视觉 = 开
+  说明: gripper_mode=怎么发指令；gripper_state_source=模型看到的夹爪是 UDP实测 还是 buffer对齐值
+  端口: 控制→30015  状态回传→30016  low_host=192.168.1.13
+
+【核心 — 会改变控制/观测】
+  [native]  推理引擎
+           → native=新引擎(SyncEngine+脚踏组)；legacy=旧缓冲对齐逻辑
+  [直连 RealMan SDK]  机械臂连接
+           → 开=上位机直连臂；关=走旧 UDP 桥收状态/发控制
+  [UDP 下发 (30015)]  夹爪控制通道
+           → udp=指令发给下位机 only_gripper；local=本机串口直接拧电机；none=关节动、夹爪不下发
+  [UDP 实测 (30016 Dynamixel)]  夹爪观测来源（进模型的 state[14/15]）
+           → udp=用下位机刚推上来的夹爪开口比覆盖观测（更贴近真机）；buffer=用与相机对齐的 buffer 夹爪维；若缺失或占位 0，自动用上一拍 action 夹爪（再退到初始开口），不再写死 0
+  [开]  视觉输入
+           → 开=模型吃图像，keys=auto（从 checkpoint 推断）；关=纯 state 推理（camera_keys=[] 或缺相机）
+  [开]  深度图
+           → 开=采 depth 并可录深度视频；关=只有 RGB（多数 ACT/Pi 策略本身不用 depth）
+  [[0, 1, 2, 3, 4, 5, 6, 14]]  模型状态维 keep_dims
+           → 决定送进模型的关节/夹爪子集；改它等于换观测与动作布局
+  [关]  Pi0.5 RTC
+           → 开=实时动作拼接(Pi特有)；关=普通开环 chunk；ACT/DP 通常保持关
+  [关]  整段 Chunk 一次下发
+           → 开=按 chunk 批执行；关=按 n_action_steps 逐步开环（当前常用）
+  [开]  脚踏任务段
+           → 开=用 ctrl+. 切任务段，连续采多任务；关=单次 test 计时跑完即停
+  [开]  外骨骼接管
+           → 开=ctrl+1 人控 / ctrl+2 回推理；关=无外骨骼链路
+  [组开始复位(dataset_median)]  回初始位 / 随机初始化
+           → 复位开=每组开始把臂回到标准/数据集位；随机开=每个任务段在圆盘内随机左臂初始位（测泛化）
+
+【次要 — 只影响落盘/评估，不改当场控制】
+  [开]  录 RGB 视频
+  [开]  录轨迹
+  [开(含对比图)]  eval_log + 对比图
+  [开]  自动评估报告
+  [开]  设备健康/状态轮询计时
+  [开]  批量人工评分表
+  [开]  批量 VLA 自动评估
+  [关]  YAML 消融会话
+  [关]  任务间改 prompt (OOD)
+  [关]  Golden Capture
+
+【会写入的文件】
+  run.log / meta / feature_manifest | videos/ | trajectory_data/ | eval_log.jsonl | eval_plots/ | evaluation_report.* | device_health* | machine_flow.jsonl | eval_table/ | 评分表.xlsx
+========================================================================

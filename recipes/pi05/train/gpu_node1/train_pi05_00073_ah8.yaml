@@ -1,0 +1,53 @@
+# gpu-node1 单卡 JAX π0.5 · 00073 快递分拣 · CHUNK SIZE / action_horizon = 8
+# 对齐本机已验证配方 train_pi05_00036_fps10.yaml（bs32 / lr 2.5e-5 / warmup 500）
+# 只改数据集、AH=8、ckpt 落到 /data（根盘 89%、./checkpoint 已 472G）
+# 194273 帧 / 32 = 6071 step/epoch × 25 epoch = 151775 step
+config_name: pi05_aloha
+framework: jax
+exp_name: 00073_jax_PI05_bs32_lr2.5e-5_ah8_1gpu
+project_name: openpi
+checkpoint_base_dir: /data/openpi
+assets_base_dir: ./assets
+
+batch_size: 32
+num_epochs: 10
+seed: 42
+num_workers: 4
+log_interval: 100
+save_every_epochs: 2
+save_full_every_epochs: 10
+keep_period: 5000
+max_to_keep: 5
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 1
+ema_decay: 0.99
+pytorch_training_precision: bfloat16
+pytorch_weight_path:
+
+model:
+  action_horizon: 8
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /home/cqcigai/datasets/00073_20260818_RM_01_yj_21
+  assets:
+    assets_dir: /home/cqcigai/datasets/00073_20260818_RM_01_yj_21
+    asset_id: "."
+  default_prompt: "Using both hands, pick up the courier items from the green conveyor belt. Place the white courier bags into the left box and the brown courier boxes into the right box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

@@ -1,0 +1,12 @@
+{
+  "trial": 0,
+  "prompt": "pick up the bowl and place it on the plate",
+  "success": false,
+  "steps": 25,
+  "action_shape": [
+    25,
+    7
+  ],
+  "action_abs_mean": 0.33194226026535034,
+  "n_frames": 25
+}

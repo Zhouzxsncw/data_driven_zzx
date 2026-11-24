@@ -1,0 +1,29 @@
+{
+  "source": "/home/xk/VLA/infer/eval_log.jsonl",
+  "episode": 0,
+  "frames": 373,
+  "action_dim": 15,
+  "events": 1,
+  "segments": 1,
+  "labels": {
+    "grasp_left": 1
+  },
+  "compose": {
+    "n": 1,
+    "train": 1,
+    "val": 0,
+    "train_episodes": [
+      0
+    ],
+    "val_episodes": [],
+    "labels": {
+      "grasp_left": 1
+    },
+    "label_fixes": 0
+  },
+  "note": "joint/gripper only; no image, no video, no Qwen",
+  "config_how": "auto:gripper_only",
+  "config_path": null,
+  "dataset_id": "unknown",
+  "fsm": "gripper_only"
+}

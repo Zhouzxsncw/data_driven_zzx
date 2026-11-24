@@ -1,0 +1,151 @@
+{
+  "schema": "cosmos3.train.record",
+  "schema_version": 1,
+  "run_name": "tongbot_00073_nano_8h100",
+  "machine": "H100 8x (h100-103)",
+  "status": "finished",
+  "finished_at": "2026-09-03T01:14:22+08:00",
+  "remote_run": "/data1/cosmos-outputs/tongbot_00073_nano/cosmos3_action_tongbot/action_sft/tongbot_00073_nano_8h100",
+  "remote_latest": "iter_000003000",
+  "local_base": "/home/xk/VLA/h100_ckpts/cosmos3_00073",
+  "local_latest_complete": "iter_000001500",
+  "local_pull": {
+    "target": "iter_000003000",
+    "status": "complete",
+    "log": "/home/xk/VLA/h100_ckpts/cosmos3_00073/pull_3000.log",
+    "pid": null,
+    "checked_at": "2026-09-03T13:58:31+08:00",
+    "local_bytes": 121408256775,
+    "shards_done": [
+      "__0_0.distcp",
+      "__1_0.distcp",
+      "__2_0.distcp",
+      "__3_0.distcp",
+      "__4_0.distcp",
+      "__5_0.distcp",
+      "__6_0.distcp",
+      "__7_0.distcp"
+    ],
+    "usable_for_infer": true,
+    "note": "续传 __4_0.distcp 完成，8/8 分片各 15175688098 B。2026-09-03 切 1236 服务端到 iter_000003000。"
+  },
+  "dataset": "00073_20260818_RM_01_yj_21",
+  "notes": [
+    "Cosmos3-Nano TongBot 00073 SFT, 16D absolute joint, concat_view, quantile.",
+    "max_iter=3000, save_iter=500. Job stopped after saving iter_000003000.",
+    "Loss is noisy; save-iter 3000 Loss=1.3132, previous step 2999 Loss=1.1217.",
+    "Pulled without optim/. model/ is 114G DCP.",
+    "2026-09-05: disk cleanup — kept only local lowest-loss ckpt iter_000001500 (loss=1.2765); deleted 500/1000/3000 (~342G). Absolute best saved was iter_000002000 (0.9715) still on H100 only.",
+    "MISTAKE 2026-09-05: cleanup rm -rf whole iters; wiped iter_000003000 infer results (action-step_4/16, unipc runs, grid_denoise_action, vision_latents). iter_000001500/action-step_16 still intact. Future: delete only model/ weights."
+  ],
+  "hparams": {
+    "model": "Cosmos3-Nano",
+    "experiment": "action_policy_tongbot_00073_nano",
+    "action_dim": 16,
+    "chunk_length": 16,
+    "action_normalization": "quantile",
+    "format_prompt_as_json": true,
+    "lr": 5e-05,
+    "warmup_steps": 200,
+    "cycle_lengths": [
+      8000
+    ],
+    "max_iter": 3000,
+    "save_iter": 500,
+    "num_gpus": 8,
+    "fsdp_shard": 8,
+    "grad_accum_iter": 8,
+    "max_samples_per_batch": 32,
+    "image_size": 256,
+    "fps": 15
+  },
+  "loss_milestones": [
+    {
+      "iter": 1,
+      "loss": 14.4899,
+      "time": "2026-09-01T03:03:00+08:00"
+    },
+    {
+      "iter": 100,
+      "loss": 3.5842
+    },
+    {
+      "iter": 200,
+      "loss": 2.1469
+    },
+    {
+      "iter": 500,
+      "loss": 2.2488,
+      "ckpt": "iter_000000500",
+      "time": "2026-09-01T10:36:45+08:00",
+      "local": false,
+      "deleted_local": true
+    },
+    {
+      "iter": 1000,
+      "loss": 1.6753,
+      "ckpt": "iter_000001000",
+      "time": "2026-09-01T18:12:40+08:00",
+      "local": false,
+      "deleted_local": true
+    },
+    {
+      "iter": 1500,
+      "loss": 1.2765,
+      "ckpt": "iter_000001500",
+      "time": "2026-09-02T01:47:51+08:00",
+      "local": true,
+      "kept": true
+    },
+    {
+      "iter": 2000,
+      "loss": 0.9715,
+      "ckpt": "iter_000002000",
+      "time": "2026-09-02T09:23:00+08:00",
+      "best_overall": true
+    },
+    {
+      "iter": 2500,
+      "loss": 1.3539,
+      "ckpt": "iter_000002500",
+      "time": "2026-09-02T17:19:50+08:00"
+    },
+    {
+      "iter": 2999,
+      "loss": 1.1217,
+      "time": "2026-09-03T01:12:29+08:00"
+    },
+    {
+      "iter": 3000,
+      "loss": 1.3132,
+      "ckpt": "iter_000003000",
+      "time": "2026-09-03T01:14:22+08:00",
+      "final": true,
+      "local": false,
+      "deleted_local": true
+    }
+  ],
+  "final_loss": 1.3132,
+  "final_iter": 3000,
+  "local_kept_ckpt": {
+    "ckpt": "iter_000001500",
+    "loss": 1.2765,
+    "reason": "lowest train loss among local ckpts",
+    "deleted": [
+      "iter_000000500",
+      "iter_000001000",
+      "iter_000003000"
+    ],
+    "note": "Global lowest saved was iter_000002000 loss=0.9715 (not pulled). Kept local best 1500.",
+    "at": "2026-09-05T15:25:22+08:00"
+  },
+  "updated_at": "2026-09-05T15:31:38+08:00",
+  "cleanup_mistake": {
+    "at": "2026-09-05T15:31:38+08:00",
+    "what": "Deleted whole iter_000000500/1000/3000 trees including infer artifacts under iter_000003000",
+    "should_have": "Only delete model/ (and optim/scheduler/trainer weight dirs); keep action-step_*, pipeline_record*, videos, vision_latents, grid_*",
+    "infer_still_ok": "iter_000001500/action-step_16",
+    "infer_lost": "iter_000003000 action-step_*/grid_denoise_action/vision_latents/pipeline_record*",
+    "archive_note": "/home/xk/VLA/h100_ckpts/cosmos3_00073/infer_archive_from_iter_000003000/LOST_INFER_NOTE.json"
+  }
+}

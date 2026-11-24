@@ -1,0 +1,6 @@
+# 对照：阻尼 SVD 伪逆。WALLOSS_IK_CONFIG 指向本文件。
+mode: abort_rest
+solver: svd
+max_joint_step_deg: 40
+dls_lambda: 0.08
+dls_iters: 12

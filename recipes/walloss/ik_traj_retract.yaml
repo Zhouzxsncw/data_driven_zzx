@@ -1,0 +1,6 @@
+# 对照：朝最后路点远支关节插值再投影回 EE。
+mode: abort_rest
+solver: realman
+traj_opt: retract
+max_joint_step_deg: 40
+arm_angle_step_deg: 15

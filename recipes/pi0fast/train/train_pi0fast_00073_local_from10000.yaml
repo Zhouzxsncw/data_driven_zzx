@@ -1,0 +1,62 @@
+# PI0-FAST TongBot 00073 / gpu-master 从 node1 ckpt-10000 热启动
+#
+# 背景: gpu-node1 训到 11000 写 full ckpt 时 DataLoader worker 被 Killed。
+# 盘上唯一带 train_state 的是 step 1000；10000 只有推理 params，Orbax --resume
+# 会退回 1000 再跑一遍。所以这里用 CheckpointWeightLoader 吃 10000 的权重，
+# 新开 Adam，step 从 0 再计 20000（补齐原 30000 预算）。
+#
+# 保存降频（本机磁盘/显存都紧，full ~41G 曾把 node1 打死）:
+#   save_interval 10000      → 中途只留一份 params（~11G）
+#   save_full_interval 20000 → 只在终盘写 optimizer；last 本身也会带 train_state
+config_name: pi0_fast_tongbot
+framework: jax
+
+exp_name: 00073_pi0fast_bs16_from10000
+project_name: openpi
+checkpoint_base_dir: ./checkpoints
+assets_base_dir: ./assets
+
+batch_size: 16          # 本机还挂着 walloss/tau0wm/pi05 推理，96G 卡只剩 ~50G；node1 原 bs32
+num_train_steps: 20000
+seed: 42
+num_workers: 4          # node1 满 save 时 worker OOM，本机降到 4
+log_interval: 50
+save_interval: 10000
+save_full_interval: 20000
+keep_period: 20000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 1
+ema_decay: 0.99
+
+weight_loader:
+  params_path: /home/xk/VLA/node1_ckpts/00073_pi0fast/checkpoints/10000/pretrained_model/params
+
+model:
+  action_horizon: 15
+  max_token_len: 280
+
+lr_schedule:
+  warmup_steps: 200     # 权重已是 10000 步，短热身即可
+  peak_lr: 2.0e-5       # 原 cosine 在 step 10000 约 2.0e-5（peak 2.5e-5）
+  decay_steps: 20000
+  decay_lr: 2.5e-6
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /home/xk/dataset/00073_20260818_RM_01_yj_21
+  assets:
+    assets_dir: /home/xk/dataset/00073_20260818_RM_01_yj_21
+    asset_id: "."
+  default_prompt: "Using both hands, pick up the courier items from the green conveyor belt. Place the white courier bags into the left box and the brown courier boxes into the right box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

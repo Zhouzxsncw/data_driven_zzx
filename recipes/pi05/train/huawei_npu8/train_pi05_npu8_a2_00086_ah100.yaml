@@ -1,0 +1,56 @@
+# π0.5 8×Ascend 910B（Atlas A2 10.228.7.110）— 00086 药盒抽屉，AH=100
+# 从正在跑的 AH15 配方只改 horizon + exp_name；bs/LR/scheduler 不动。
+# 来源：A2 configs/train_pi05_npu8_a2_00086.yaml（USB step4000 train_config.json）
+config_name: pi05_aloha
+framework: pytorch
+
+exp_name: 00086_PI05_a2npu8_bs128_lr7e-5_ah100_fixbase
+project_name: openpi
+checkpoint_base_dir: /home/software/pi05/checkpoints
+assets_base_dir: ./assets
+
+batch_size: 128          # TOTAL across 8 NPUs = 16 per NPU
+num_epochs: 10
+seed: 42
+num_workers: 16
+log_interval: 50
+
+save_every_epochs: null
+save_interval: 2000
+save_full_every_epochs: null
+keep_period: 5000
+overwrite: true
+resume: false
+wandb_enabled: false
+fsdp_devices: 8
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /home/pi05/models
+
+model:
+  action_horizon: 100
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+  decay_steps: 100600     # 与 AH15 相同：~1006 步/ep × 100
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /home/pi05/00086_20260827_RM_01_YJ_ZL_21
+  assets:
+    assets_dir: /home/pi05/00086_20260827_RM_01_YJ_ZL_21
+    asset_id: "."
+  default_prompt: "Using both hands, pull open the drawer with the blue handle using your left hand, take out the white medicine box with your right hand, place it into the green drawer, and finally close the drawer."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

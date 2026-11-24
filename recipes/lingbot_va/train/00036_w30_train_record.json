@@ -1,0 +1,96 @@
+{
+  "schema": "lingbot.train.record",
+  "schema_version": 1,
+  "run_name": "00036_va_h100_16ch_w30",
+  "machine": "H100 8x, save_root=/data1/outputs/00036_va_h100_16ch_w30",
+  "config_name": "00036_train",
+  "save_root": "/data1/outputs/00036_va_h100_16ch_w30",
+  "dataset_path": "/data1/dataset/00036_20260804_RM_01_yj_21",
+  "local_dataset_path": "/home/xk/dataset/00036_20260804_RM_01_yj_v21",
+  "pretrained_model_path": "/data1/lingbot-va-pretrained",
+  "train_script": "/data1/lingbot-va/script/05_train_va_00036_4090.sh",
+  "notes": [
+    "151 episode TongBot 16D dual-arm + gripper, attn_window=30 to fit 4090 24GB infer.",
+    "Training used guidance=1 / action_guidance=1; cfg_prob=0.1 still drops condition for CFG.",
+    "Train cfg default sampling is video 25 / action 50; paper-style real-robot sampling may differ.",
+    "effective batch = batch_size 2 × 8 GPU × grad_accum 4 = 64."
+  ],
+  "source_files": [
+    {
+      "role": "train_cfg",
+      "path": "/home/xk/VLA/h100_ckpts/00036_va_w30/train_configs/va_00036_train_cfg.py"
+    },
+    {
+      "role": "arch_cfg",
+      "path": "/home/xk/VLA/h100_ckpts/00036_va_w30/train_configs/va_00036_cfg.py"
+    },
+    {
+      "role": "launch_script",
+      "path": "/home/xk/VLA/h100_ckpts/00036_va_w30/train_configs/05_train_va_00036_4090.sh"
+    }
+  ],
+  "hparams": {
+    "env_type": "cobot_16d_tshape",
+    "attn_window": 30,
+    "frame_chunk_size": 2,
+    "height": 256,
+    "width": 320,
+    "patch_size": [1, 2, 2],
+    "action_dim": 30,
+    "action_per_frame": 16,
+    "used_action_channel_ids": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    "action_norm_method": "quantiles",
+    "obs_cam_keys": [
+      "observation.images.front",
+      "observation.images.left",
+      "observation.images.right"
+    ],
+    "guidance_scale": 1,
+    "action_guidance_scale": 1,
+    "num_inference_steps": 25,
+    "action_num_inference_steps": 50,
+    "video_exec_step": -1,
+    "snr_shift": 5.0,
+    "action_snr_shift": 1.0,
+    "cfg_prob": 0.1,
+    "learning_rate": 1e-5,
+    "beta1": 0.9,
+    "beta2": 0.95,
+    "weight_decay": 0.1,
+    "warmup_steps": 200,
+    "batch_size": 2,
+    "gradient_accumulation_steps": 4,
+    "effective_batch_size": 64,
+    "num_gpus": 8,
+    "num_steps": 20000,
+    "save_interval": 500,
+    "gc_interval": 50,
+    "load_worker": 0,
+    "enable_wandb": false,
+    "param_dtype": "bfloat16",
+    "dataset_episodes": 151,
+    "dataset_fps": 15
+  },
+  "resume": {
+    "started_at": "2026-09-03T10:02:36+08:00",
+    "from_ckpt": "/data1/outputs/00036_va_h100_16ch_w30/checkpoints/checkpoint_step_10000",
+    "start_step": 10000,
+    "target_steps": 20000,
+    "log": "/data1/outputs/00036_va_h100_16ch_w30/log_train_resume10000.txt",
+    "previous_stop": {
+      "at": "2026-08-31T01:29:12+08:00",
+      "live_step": 10276,
+      "last_saved": 10000,
+      "reason": "SIGTERM (likely preempted for Cosmos3 00073 SFT)"
+    },
+    "first_steps_after_resume": {
+      "step": 10005,
+      "latent_loss": 0.0293,
+      "action_loss": 0.0018,
+      "lr": 1e-5
+    },
+    "next_save": 10500,
+    "stopped_at": "2026-09-03T10:23:00+08:00",
+    "stopped_reason": "Wrong job: user asked for Cosmos3 00036 SFT, not LingBot-VA resume. Killed to free 8×H100."
+  }
+}

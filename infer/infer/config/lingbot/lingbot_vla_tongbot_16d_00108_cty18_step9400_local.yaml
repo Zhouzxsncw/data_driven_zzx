@@ -1,0 +1,282 @@
+# =============================================================================
+# LingBot-VLA 2.0 × 00036 原生 16D（websocket → lingbot deploy）
+# 训练：lingbot-vla-v2/configs/vla/tongbot/tongbot_00036.yaml
+#       robot_config = tongbot_16d  （真机维序，禁止 ALOHA keep_dims 重排）
+#   1) lingbotvla env:
+#        cd lingbot-vla-v2
+#        python -m deploy.lingbot_vla_v2_policy --model_path <00036 hf_ckpt> --use_compile --use_length 25 --port 8006
+#   2) infer env:
+#        python3 infer/cli/run_batch_infer.py --config infer/config/lingbot/lingbot_vla_tongbot_16d_00036.yaml
+# 对齐说明：lingbot-vla-v2/docs/TONGBOT_INFER_ALIGN.md
+# =============================================================================
+# 维序：
+#   - 数据集 / LingBot unapply / 真机 TongBot 均为 [左7|右7|左爪|右爪]
+#   - keep_dims 必须是 0..15 恒等，禁止 ALOHA 重排
+# =============================================================================
+
+experiment_name: lingbot_vla_tongbot_16d_00108_cty18_step9400
+
+engine: native
+
+policy:
+  type: lingbot_vla
+  lingbot_backend: websocket
+  lingbot_host: "127.0.0.1"
+  lingbot_port: 8007
+  # 须与 lingbot-vla-v2/configs/robot_configs/{name}.yaml 一致
+  lingbot_robo_name: tongbot_16d_00108
+  lingbot_action_key: action
+  lingbot_connect_timeout_sec: 300.0
+  # websocket 模式下权重在服务端；此处仅作记录/占位
+  ckpt_dir: /home/xk/data_Driven/recipes/lingbot_pkgs/cty18_step9400/checkpoint/9400/hf_ckpt
+  tasks_per_group: 12
+  task_prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."
+  n_action_steps_override: 25
+  use_action_chunk: true
+  # 与训练 tongbot_16d 一致：真机原生 16D，不做重排
+  keep_dims: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  camera_keys: [observation.cam_left, observation.cam_mid, observation.cam_right]
+  # 与 pkg tongbot_16d_00108.yaml images.origin_keys 一致(left/front/right)
+  lingbot_image_key_map:
+    observation.cam_left: observation.images.left
+    observation.cam_mid: observation.images.front
+    observation.cam_right: observation.images.right
+  rtc_enabled: false
+  action_scale: 1.0
+  action_clip_abs: null
+
+network:
+  high_host: "192.168.1.14"  # 本机网卡（.12 是 cigai20；本机 .14 绑 .12 会 errno 99）
+  low_host: "192.168.1.13"
+  state_port: 18132
+  control_port: 30005
+  gripper_port: 30015
+  gripper_state_port: 30016
+  camera_port: 18888
+
+camera_sender:
+  enabled: true
+  transport: local
+  target_host: null
+  target_port: null
+  jpeg_quality: 95
+  use_host_timestamp: true
+  get_timeout_sec: 3.0
+  reconnect_delay_sec: 0.5
+  devices:
+    # 与 data_collect/config/dual_arm_gripper_2cam.yaml 三相机 serial + 顺序一致
+    # （exo 接管共用 image_buf，按 devices 下标写入数采 feature；勿打乱顺序）
+    # 模型输入另按 policy.camera_keys / camera_color_names 重排：left → front(mid) → right
+    # 录像槽位：devices[0/1/2] → cam_left / cam_mid / cam_third（第三路即右腕）
+    - key: observation.cam_left
+      serial: "f1480854"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.cam_mid
+      serial: "f1420947"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.cam_right
+      serial: "f1380315"
+      width: 640
+      height: 480
+      fps: 30
+
+direct_robot:
+  enabled: true
+  sdk_path: ~/RM_API
+  gripper_mode: udp
+  # 模型输入夹爪 state[14]/[15]：
+  #   udp    = 推理帧最新下位机 UDP 实测（30016 左右两维）
+  #   buffer = 同步缓冲池对齐值；若该维缺失/占位 0，则回退上一拍 action 夹爪，不用 0
+  gripper_state_source: udp
+  # 左右夹爪初始开口比（经 30015 同时下发）
+  gripper_initial_position: [1.0, 1.0]
+  reset_to_init_on_group_start: true
+  # dataset_median：从训练集各 episode 首帧取中位数，覆盖双臂/双夹爪
+  # ALOHA dataset_stats.pkl 不含 episode 首帧；没有 LeRobot dataset_root 时用 standard。
+  init_pose_source: standard
+  random_task_init_pose: false
+  random_task_init_radius_m: 0.10
+  random_task_init_max_attempts: 32
+  # 组确认后、以及每次 Ctrl+. 开始任务前，都回到同一套 standard_init
+  reset_to_init_on_task_start: true
+  # 右臂用训练集首帧中位数，勿再 mirror 覆盖
+  mirror_right_init_from_left: false
+  standard_init_joint_degrees:
+    - 0.0
+    - 2.5
+    - 0.0
+    # left（保持原配置）
+    - -103.0
+    - -73.67
+    - 89.0
+    - -8.31
+    - -22.0
+    - -75.5
+    - 76.4
+    # right：pick_place_dual_arm_yj_h85_20260717_142034 首帧中位数
+    # （数值来自修复前旧数采：state 为 RM 机身角→度，直接 movej，勿再 +120。
+    #  新数采 state 已是逻辑角；若从新数据推 init，需 +120 成机身角或走 dataset_init_pose）
+    - 127.83
+    - 71.07
+    - -69.22
+    - 36.5
+    - 17.23
+    - 79.71
+    - 129.44
+  reset_move_speed: 10
+  reset_settle_sec: 1.5
+  robot_r_host: "192.168.1.17"
+  robot_l_host: "192.168.1.18"
+  port_r: 8080
+  port_l: 8080
+  enable_joint: [false, false, false]
+  # gripper_mode=udp 时不连接 Dynamixel，仅 gripper_mode=local 时生效
+  left_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB0
+    dxl_id: 1
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  right_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB1
+    dxl_id: 2
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  state_poll_hz: 100.0
+
+sync:
+  max_time_diff: null
+  sync_delay: 0.05
+  buffer_size: 1000
+  prefill_sec: 3.0
+  min_anchor_buffer: 2
+  clock_offset:
+    robot_state: 0.0
+    camera: 0.0
+
+recording:
+  enabled: true
+  save_videos: true
+  save_trajectory: true
+  save_third_cam: true
+  save_fourth_cam: true
+  inference_dir: /home/xk/data_Driven/recipes/lingbot_pkgs/cty18_step9400/inference
+  generate_debug_plot: true
+  debug_plot_max_dims: 16
+  debug_plot_dpi: 160
+  golden_capture: false
+  golden_capture_dir: null
+  golden_capture_mode: policy
+
+session:
+  fps: 15
+  max_tests: null
+  max_duration_sec: null
+  prompt_continue: true
+  auto_finalize: true
+  task_mode: continuous_tasks
+  pedal_task_control: true
+  visualize_cam_left: true
+  visualize_cam_mid: true
+  visualize_cam_right: true
+  cam_left_window_name: cam_left
+  cam_mid_window_name: cam_mid
+  cam_right_window_name: cam_right
+
+pedal:
+  task_toggle: ctrl+.
+  confirm: y
+  cancel: n
+  discard: ""  # 关闭
+  exo_takeover: ctrl+1      # 外骨骼接管（需 exo_safety.enabled=true）
+  exo_safety_infer: ctrl+2  # 恢复推理
+
+exo_safety:
+  enabled: true
+  exo_state_port: 18140
+  exo_command_port: 30026
+  collect_config: ../../../data_collect/config/dual_arm_gripper_2cam.yaml
+  # 选数采后延迟开录：先弹中间相机窗口不播放，到点后写帧并同步预览
+  record_start_delay_sec: 2.0
+  collect_cam_mid_window_name: exo_collect_cam_mid
+  # 接管前对齐：auto=驱动外骨骼到机械臂；manual=人摆外骨骼
+  align_enabled: true
+  align_mode: auto
+  align_max_joint_err_deg: 12.0
+  align_rms_joint_err_deg: 8.0
+  align_log_every_sec: 1.0
+  align_drive_max_step_deg: 2.0
+  align_target_send_hz: 50.0
+
+logging:
+  level: INFO
+  human_log_level: INFO
+  file_log_level: INFO
+  log_sync_every_n_frames: 30
+  log_action_steps_detail: false
+  machine_flow_enabled: true
+  alerts_enabled: true
+  # 设备健康：实时窗口 + 重大异常即刻暂停推理
+  device_health_enabled: true
+  device_health_live_status_ui: true
+  device_health_pause_on_anomaly: true
+  device_health_pause_require_confirm: true
+  log_file: /home/xk/VLA/infer/logs/lingbotvla_00108_cty18_step9400_session.log
+
+evaluation:
+  enabled: true
+  auto_after_each_test: true
+  save_report: true
+  report_filename: evaluation_report.json
+  metrics: [automatic]
+  labels_file: null
+  sync_warn_rate_threshold: 0.30
+  eval_log_enabled: true
+  eval_log_filename: eval_log.jsonl
+  eval_log_save_images: false
+  eval_log_image_dir: eval_images
+  eval_log_image_format: jpg
+  eval_log_save_videos: false
+  eval_log_video_dir: eval_videos
+  eval_log_generate_plots: true
+  eval_log_plot_dir: eval_plots
+  eval_log_plot_dpi: 150
+
+ablation:
+  enabled: false
+
+batch_infer:
+  action_step_parts: 5
+  phase: action-step
+  ood_tasks_per_group: 1
+  output_dir: null
+  best_action_step: null
+  skip_existing: false
+  # ACT/DP 不使用 OOD；保留字段无影响（双臂预设仅作评分表文案参考）
+  ood_presets: ../ood_language_presets.yaml
+  # true：每组自动生成 WPS 评分表 .et；false：跳过（无 WPS 或调试时）
+  feedback_score_sheet: false
+
+  # action-step 每组结束后自动评估（vla_eval），产物写入 <action-step_xx>/eval_table/
+  vla_auto_eval:
+    enabled: true
+    # table_template: null   # 默认 vla_eval/template/评测表.et
+    # config: null           # 默认 vla_eval/config/config_scored.yaml
+    output_dirname: eval_table
+    result_table_name: eval_result.et
+    summary_name: summary.md
+
+  remote_sync:
+    enabled: false
+    host: "10.151.43.132"
+    port: 22
+    username: "xk"
+    remote_dir: "/home/xk/CQTongBot/research/ablation/runs/real"
+    private_key_path: ~/.ssh/id_ed25519

@@ -1,0 +1,40 @@
+# OOD language 固定测试集 — 人工按 ID 选择要运行的项
+# baseline 为训练/默认 in-distribution prompt
+
+baseline_prompt: >
+  Use the left gripper to pick up the toy and put into the yellow box.
+
+presets:
+  - id: 1
+    name: test_1
+    category: 改变夹爪位置
+    modification: "LEFT -> RIGHT"
+    task_prompt: >
+      Use the right gripper to pick up the toy and put into the yellow box.
+
+  - id: 2
+    name: test_2
+    category: 改变物体名字
+    modification: "toy -> object"
+    task_prompt: >
+      Use the left gripper to pick up the object and put into the yellow box.
+
+  - id: 3
+    name: test_3
+    category: 改变物体颜色
+    modification: "yellow -> blue"
+    task_prompt: >
+      Use the left gripper to pick up the toy and put into the blue box.
+
+  - id: 4
+    name: test_4
+    category: 完全随机TEXT
+    modification: "what's your name?"
+    task_prompt: "What's your name?"
+
+  - id: 5
+    name: test_5
+    category: 随机轻微扰动TEXT
+    modification: "put into -> place it into"
+    task_prompt: >
+      Use the left gripper to pick up the toy and place it into the yellow box.

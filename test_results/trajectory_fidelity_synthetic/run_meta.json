@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "run_id": "test_results",
+  "started_utc": "2026-11-18T04:01:34.852913+00:00",
+  "origin_monotonic_ns": 693762704651728,
+  "origin_wall_ns": 1794974494852921402,
+  "position_unit": "radian",
+  "sdk_position_unit": "degree",
+  "joint_convention": "TongBot J7 physical minus 120 degrees",
+  "feedback_time_semantics": "host per-arm SDK query interval; no hardware sample timestamp",
+  "source_metadata": {
+    "synthetic": true
+  },
+  "closed": true,
+  "run_returned": true,
+  "accepted": {
+    "commands": 40,
+    "feedback": 40,
+    "events": 4
+  },
+  "written": {
+    "commands": 40,
+    "feedback": 40,
+    "events": 4
+  },
+  "dropped": {},
+  "errors": [],
+  "ended_utc": "2026-11-18T04:01:34.853912+00:00",
+  "recording_complete": true
+}

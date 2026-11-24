@@ -1,0 +1,8 @@
+ cd /home/cigai22/infer
+ export PYTHONPATH="$(pwd):$PYTHONPATH"
+ python3 infer/run_infer.py
+
+conda activate openpi-pi05-infer
+
+/home/cigai22/CQTongBot/infer/609/0423-0416-leftonly-c50-a50-vla/pretrained_model
+RM_API2-main

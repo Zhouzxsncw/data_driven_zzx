@@ -1,0 +1,124 @@
+# τ0-WM TongBot 00073 EE 20D **30 万步**配置（2026-09-20）。
+#
+# 从基座 tau-0-wm 预训练权重直接训 300000 步（00036 已验证流程：
+# 六卡 GPU 2-7、bs=1、峰值 reserved 64.78G、1.68it/s、20k 步一档）。
+# 与 00036_ee_300k 的差异：
+#   * model_path 指基座 /data1/tau0wm/pretrained/tau-0-wm（非 00036 step_30000）
+#   * latest_global_step=0 从头编号，进度条 0→300000
+#   * 数据 00073_rm75_ee_tau0wm（630ep / 194273 帧，τ0-WM 列约定）
+#   * lr 沿用 constant_with_warmup，warmup 1000 步爬到 5e-5
+allow_tf32: false                         # 同 EE 配置：官方 yaml 有这一项，缺了 AttributeError
+batch_size: 1                             # 80G 卡实测 bs≥2 必 OOM（峰值 reserved 64.78G）
+beta1: 0.9
+beta2: 0.95
+beta3: 0.999
+caption_dropout_p: 0.06
+data:
+  public_args:
+    action_chunk: 33
+    action_space: eef6d
+    action_type: relative
+    chunk: 9
+    ignore_seek: false
+  train:
+  - configs/data/tongbot/00073_ee_rela.yaml
+  val:
+  - configs/data/tongbot/00073_ee_rela.yaml
+dataloader_num_workers: 8
+deepspeed:
+  bf16:
+    enabled: true
+  fp16:
+    enabled: false
+  gradient_clipping: 1.0
+  zero_optimization:
+    stage: 1
+diffusion_model:
+  config:
+    action_dim: 1024
+    action_ffn_dim: 2048
+    action_in_dim: 20
+    action_max_seq_len: 60
+    action_num_heads: 16
+    cross_attn_norm: true
+    dim: 3072
+    eps: 1.0e-06
+    ffn_dim: 14336
+    freq_dim: 256
+    in_dim: 48
+    model_type: ti2v
+    num_heads: 24
+    num_layers: 30
+    out_dim: 48
+    patch_size:
+    - 1
+    - 2
+    - 2
+    qk_norm: true
+    text_dim: 4096
+    text_len: 512
+    use_ae: true
+    window_size:
+    - - -1
+      - 1
+  model_path: /data1/tau0wm/pretrained/tau-0-wm     # 基座（sii-research/tau-0-wm）
+diffusion_model_class: WanModel
+diffusion_model_class_path: models/wan_2_2_models/transformers/model.py
+diffusion_scheduler_class: FlowUniPCMultistepScheduler
+diffusion_scheduler_class_path: models/wan_2_2_models/scheduler/fm_solvers_unipc.py
+epsilon: 1e-8
+flow_logit_mean: 0.0
+flow_logit_std: 1.0
+gradient_accumulation_steps: 1
+gradient_checkpointing: true
+latest_epoch: 0                           # 从头训练
+latest_global_step: 0                     # 进度条 0→300000，fleet 监控按此算进度
+load_weights: true
+logging_dir: logs
+lr: 5e-5
+lr_num_cycles: 1
+lr_power: 1.0
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 1000
+max_grad_norm: 1.0
+mixed_precision: bf16
+model_name: tau_train_posttrain_tongbot_00073_ee_300k
+nccl_timeout: 1000
+noisy_video: false
+num_inference_step: 10
+optimizer: adamw
+optimizer_8bit: false
+optimizer_torchao: false
+output_dir: /data1/tau0wm/outputs/tongbot_00073_ee
+pin_memory: true
+pipeline_class: WanTI2V
+pipeline_class_path: models/wan_2_2_models/pipeline/textimage2video.py
+repeat_in_batch: 1
+report_to: None
+return_action: true
+return_video: true
+scale_lr: false
+seed: 3331459158
+steps_to_log: 20
+steps_to_val: 100000000                   # val 关闭（生成式 validate 无人值守有风险）
+steps_to_save: 20000                      # 300k/20k = 15 份 step ckpt ×11G ≈ 165G
+                                          # + latest_accelerator_state ≈ 55G
+sub_folder: tau0wm_vam5b_ee_rela_192x256_bs1_300k
+text_encoder:
+  checkpoint_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+  text_len: 512
+  tokenizer_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/google/umt5-xxl
+textenc_class: T5EncoderModel
+textenc_class_path: models/wan_2_2_models/text_encoder/t5.py
+tracker_name: tau_trainer_action
+train_epochs: 10000
+train_mode: video+action
+train_steps: 300000                       # 全局 300000（00036 经验：300k loss 0.137 vs 30k 0.281）
+use_color_jitter: true
+use_deepspeed: false
+vae_class: Wan2_2_VAE_Batch
+vae_class_path: models/wan_2_2_models/vae/vae2_2.py
+vae_encoding_mode: 3dvae
+vae_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+val_shuffle: true
+weight_decay: 1e-5

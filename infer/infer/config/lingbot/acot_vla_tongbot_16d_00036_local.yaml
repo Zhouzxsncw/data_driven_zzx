@@ -1,0 +1,222 @@
+# 本机 gpu-master ACoT-VLA 00036 真机客户端
+# 服务端: bash recipes/acot_vla/launch_acot_server.sh（已开，端口 8000）
+# 客户端: bash recipes/acot_vla/launch_acot_client.sh
+# =============================================================================
+# ACoT-VLA 输出:
+#   coarse_actions (15,16) — 粗粒度动作（内部推理链，不用执行）
+#   actions (10,16)       — 精细动作块，真机执行这个
+# =============================================================================
+
+experiment_name: acot_vla_tongbot_16d_00036
+
+engine: native
+
+policy:
+  type: acot_vla
+  lingbot_backend: websocket
+  lingbot_host: "127.0.0.1"
+  lingbot_port: 8000
+  lingbot_connect_timeout_sec: 600.0
+  # 权重在服务端（ACoT-VLA serve_policy.py）
+  ckpt_dir: /media/xk/T9_4/home_spill_20260920/ACoT-VLA/checkpoints/acot_tongbot_00036/tongbot_00036_run1/14000
+  # 00036 数据集（用于 init_pose_source=dataset_median）
+  dataset_root: /home/xk/dataset/00036_20260804_RM_01_yj_v21
+  tasks_per_group: 12
+  task_prompt: "Using both hands, pick up the banana and lemon from the table and place them into the black box. Then pick up the vegetables and place them into the blue box."
+  # fine action_horizon=10（coarse=15 在服务端内部处理）
+  n_action_steps_override: 10
+  use_action_chunk: true
+  # 与训练一致的三相机 key
+  camera_keys: [observation.images.front, observation.images.left, observation.images.right]
+  va_obs_fps: 15
+  keep_dims: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  rtc_enabled: false
+  action_scale: 1.0
+  action_clip_abs: 3.0
+
+network:
+  high_host: "192.168.1.14"
+  low_host: "192.168.1.13"
+  state_port: 18132
+  control_port: 30005
+  gripper_port: 30015
+  gripper_state_port: 30016
+  camera_port: 18888
+
+camera_sender:
+  enabled: true
+  transport: local
+  target_host: null
+  target_port: null
+  jpeg_quality: 95
+  use_host_timestamp: true
+  get_timeout_sec: 3.0
+  reconnect_delay_sec: 0.5
+  enable_depth: false
+  devices:
+    - key: observation.images.front
+      serial: "f1420947"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.images.left
+      serial: "f1480854"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.images.right
+      serial: "f1380315"
+      width: 640
+      height: 480
+      fps: 30
+
+direct_robot:
+  enabled: true
+  sdk_path: ~/RM_API
+  gripper_mode: udp
+  gripper_state_source: udp
+  gripper_initial_position: [1.0, 1.0]
+  reset_to_init_on_group_start: true
+  init_pose_source: dataset_median
+  random_task_init_pose: false
+  random_task_init_radius_m: 0.10
+  random_task_init_max_attempts: 32
+  reset_to_init_on_task_start: true
+  mirror_right_init_from_left: false
+  standard_init_joint_degrees:
+    - 0.0
+    - 2.5
+    - 0.0
+    # left
+    - -103.0
+    - -73.67
+    - 89.0
+    - -8.31
+    - -22.0
+    - -75.5
+    - 76.4
+    # right
+    - 127.83
+    - 71.07
+    - -69.22
+    - 36.5
+    - 17.23
+    - 79.71
+    - 129.44
+  reset_move_speed: 10
+  reset_settle_sec: 1.5
+  robot_r_host: "192.168.1.17"
+  robot_l_host: "192.168.1.18"
+  port_r: 8080
+  port_l: 8080
+  enable_joint: [false, false, false]
+  left_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB0
+    dxl_id: 1
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  right_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB1
+    dxl_id: 2
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  state_poll_hz: 100.0
+
+sync:
+  max_time_diff: null
+  sync_delay: 0.05
+  buffer_size: 1000
+  prefill_sec: 2.0
+  min_anchor_buffer: 5
+  clock_offset:
+    robot_state: 0.0
+    camera: 0.0
+
+recording:
+  enabled: true
+  save_videos: true
+  save_trajectory: true
+  save_third_cam: true
+  save_fourth_cam: true
+  inference_dir: null
+  generate_debug_plot: true
+  debug_plot_max_dims: 16
+  debug_plot_dpi: 160
+  golden_capture: false
+
+session:
+  fps: 15
+  max_tests: null
+  max_duration_sec: null
+  prompt_continue: true
+  auto_finalize: true
+  task_mode: continuous_tasks
+  pedal_task_control: true
+  visualize_cam_left: true
+  visualize_cam_mid: true
+  visualize_cam_right: true
+  cam_left_window_name: cam_left
+  cam_mid_window_name: cam_mid
+  cam_right_window_name: cam_right
+
+pedal:
+  task_toggle: ctrl+.
+  confirm: y
+  cancel: n
+  discard: delete
+  exo_takeover: ctrl+1
+  exo_safety_infer: ctrl+2
+
+exo_safety:
+  enabled: true
+  exo_state_port: 18140
+  exo_command_port: 30026
+  collect_config: ../../../data_collect/config/dual_arm_gripper_2cam.yaml
+  record_start_delay_sec: 2.0
+  collect_cam_mid_window_name: exo_collect_cam_mid
+  align_enabled: true
+  align_mode: auto
+  align_max_joint_err_deg: 12.0
+  align_rms_joint_err_deg: 8.0
+  align_log_every_sec: 1.0
+  align_drive_max_step_deg: 2.0
+  align_target_send_hz: 50.0
+
+logging:
+  level: INFO
+  human_log_level: INFO
+  file_log_level: INFO
+  log_sync_every_n_frames: 30
+  log_action_steps_detail: true
+  machine_flow_enabled: true
+  alerts_enabled: true
+  device_health_enabled: true
+  device_health_live_status_ui: true
+  device_health_pause_on_anomaly: true
+  device_health_pause_require_confirm: true
+  log_file: /home/xk/VLA/infer/logs/acot_vla_00036_session.log
+
+evaluation:
+  enabled: true
+  auto_after_each_test: true
+  save_report: true
+  report_filename: evaluation_report.json
+  metrics: [automatic]
+  sync_warn_rate_threshold: 0.30
+
+ablation:
+  enabled: false
+
+batch_infer:
+  action_step_parts: 5
+  phase: action-step
+  ood_tasks_per_group: 1
+  output_dir: null
+  best_action_step: null
+  skip_existing: false
+  ood_presets: ../ood_language_presets_dual_arm.yaml
+  feedback_score_sheet: false

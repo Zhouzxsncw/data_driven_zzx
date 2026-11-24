@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-18",
+  "pytest_passed": 16,
+  "full_inference_started": false,
+  "remote_changed": false,
+  "snapshot_hashes_verified": 1251,
+  "changed_code_files": [
+    "infer/infer/cli/run_async_infer.py",
+    "infer/infer/core/engine.py",
+    "infer/infer/io/direct_robot_io.py",
+    "infer/infer/recording/trajectory_fidelity.py",
+    "infer/infer/runners/async_chunk_engine.py",
+    "infer/infer/runners/async_chunk_runner.py",
+    "infer/infer/tests/test_trajectory_fidelity.py",
+    "infer/tools/analyze_trajectory_fidelity.py",
+    "recipes/pi05/run_current_tk.sh",
+    "recipes/pi05/run_tk_pi05.sh"
+  ],
+  "synthetic_only": true
+}

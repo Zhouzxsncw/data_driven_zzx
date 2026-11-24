@@ -1,0 +1,996 @@
+--- a/infer/infer/cli/run_async_infer.py
++++ b/infer/infer/cli/run_async_infer.py
+@@ -37,6 +37,8 @@
+     p = argparse.ArgumentParser(description="异步动作块推理（不改现有同步环）")
+     p.add_argument("--config", type=Path, default=default, help="YAML 配置路径")
+     p.add_argument("--log-level", type=str, default=None)
++    p.add_argument("--trajectory-fidelity", action="store_true",
++                   help="只记录轨迹保真度 CSV，不改变控制模式或动作")
+     p.add_argument(
+         "--replan-steps",
+         type=int,
+@@ -58,7 +60,7 @@
+     replan_steps = args.replan_steps
+     if replan_steps is None:
+         replan_steps = cfg.session.replan_steps
+-    test_dirs = run_async_chunk_session(cfg, replan_steps=replan_steps)
++    test_dirs = run_async_chunk_session(cfg, replan_steps=replan_steps, trajectory_fidelity=args.trajectory_fidelity)
+     session._postprocess_tests(test_dirs, cfg)
+     print(f"\n[OK] 异步推理完成，共 {len(test_dirs)} 个 test 目录:")
+     for d in test_dirs:
+--- a/infer/infer/core/engine.py
++++ b/infer/infer/core/engine.py
+@@ -652,6 +652,12 @@
+ 
+     def _flow_event(self, event: str, data: Dict[str, Any]) -> None:
+         self.flow.event(event, data)
++        fidelity = getattr(self, "_trajectory_fidelity", None)
++        if fidelity is not None and (
++            event.startswith(("task_", "group_", "exo_", "device_", "inference_error"))
++            or event in {"post_action_invalid", "chunk_inference"}
++        ):
++            fidelity.event(event, details=data)
+         if self._device_health is not None:
+             self._device_health.note_flow_event(event, data)
+ 
+@@ -1290,9 +1296,16 @@
+         step_start = time.perf_counter()
+         t_send = time.time()
+ 
+-        send_sec = self._send_action_step(
+-            full, ctrl_sock, grip_sock, port_ctrl, port_grip
+-        )
++        fidelity = getattr(self, "_trajectory_fidelity", None)
++        context = None if fidelity is None else {
++            "chunk_id": getattr(self, "_fidelity_active_chunk_id", None), "step_index": i,
++        }
++        if fidelity is None:
++            send_sec = self._send_action_step(full, ctrl_sock, grip_sock, port_ctrl, port_grip)
++        else:
++            send_sec = self._send_action_step(
++                full, ctrl_sock, grip_sock, port_ctrl, port_grip, fidelity_context=context
++            )
+         feedback = self._wait_state_feedback(
+             pre_ts,
+             min(action_response_timeout, interval),
+@@ -1306,6 +1319,11 @@
+                 chunk_step_index=i,
+             )
+         )
++        if fidelity is not None:
++            import json
++            fidelity.emit("gripper", source="udp_feedback_snapshot",
++                          chunk_id=(context or {}).get("chunk_id"),
++                          details_json=json.dumps(gripper_udp_post, default=str))
+         if self._device_health is not None:
+             self._device_health.note_action_feedback(feedback)
+             if self.cfg.direct_robot.gripper_mode == "udp":
+@@ -3505,6 +3523,8 @@
+         grip_sock: Optional[socket.socket],
+         port_ctrl: Tuple[str, int],
+         port_grip: Tuple[str, int],
++        *,
++        fidelity_context: Optional[Dict[str, Any]] = None,
+     ) -> float:
+         """下发一步动作到机械臂+夹爪，返回发送耗时（秒）。"""
+         if self._exo_safety is not None and self._exo_safety.pauses_inference:
+@@ -3516,7 +3536,11 @@
+         )
+         if self._direct_robot is not None:
+             t0 = time.perf_counter()
+-            self._direct_robot.send_action_15d(action_full)
++            fidelity = getattr(self, "_trajectory_fidelity", None)
++            if fidelity is None:
++                self._direct_robot.send_action_15d(action_full)
++            else:
++                self._direct_robot.send_action_15d(action_full, fidelity_context=fidelity_context)
+             if self.cfg.direct_robot.gripper_mode == "udp":
+                 assert grip_sock is not None
+                 _, g = pack_tongbot_control_packets(
+@@ -3524,6 +3548,10 @@
+                 )
+                 q_control_send(g, grip_sock, port_grip)
+                 self._direct_robot.note_gripper_command(float(g[1]), float(g[2]))
++                if fidelity is not None:
++                    fidelity.emit("gripper", source="udp_command_sent",
++                                  chunk_id=(fidelity_context or {}).get("chunk_id"),
++                                  left=float(g[1]), right=float(g[2]))
+             return time.perf_counter() - t0
+         assert ctrl_sock is not None and grip_sock is not None
+         q, g = pack_tongbot_control_packets(
+--- a/infer/infer/io/direct_robot_io.py
++++ b/infer/infer/io/direct_robot_io.py
+@@ -341,6 +341,7 @@
+         gripper_state_stale_sec: float = 1.0,
+     ) -> None:
+         self.cfg = cfg
++        self.trajectory_fidelity = None
+         self.right_arm = None
+         self.left_arm = None
+         self.executor: Optional[ThreadPoolExecutor] = None
+@@ -581,8 +582,12 @@
+     def _read_joint_positions(self) -> List[float]:
+         self._require_connected()
+         assert self.executor is not None
+-        future_r = self.executor.submit(self.right_arm.rm_get_joint_degree)
+-        future_l = self.executor.submit(self.left_arm.rm_get_joint_degree)
++        if self.trajectory_fidelity is None:
++            future_r = self.executor.submit(self.right_arm.rm_get_joint_degree)
++            future_l = self.executor.submit(self.left_arm.rm_get_joint_degree)
++        else:
++            future_r = self.executor.submit(self._fidelity_query_joint, "right", self.right_arm)
++            future_l = self.executor.submit(self._fidelity_query_joint, "left", self.left_arm)
+         ret_r, joint_r = future_r.result()
+         ret_l, joint_l = future_l.result()
+         if ret_r != 0:
+@@ -590,6 +595,29 @@
+         if ret_l != 0:
+             raise RuntimeError(f"读取左臂关节失败: code={ret_l}")
+         return list(joint_l) + list(joint_r)
++
++    def _fidelity_query_joint(self, name, arm):
++        recorder = self.trajectory_fidelity
++        start = time.monotonic_ns()
++        result = None
++        error = ""
++        try:
++            result = arm.rm_get_joint_degree()
++            return result
++        except Exception as exc:
++            error = repr(exc)
++            raise
++        finally:
++            end = time.monotonic_ns()
++            row = dict(sample_id=recorder.next_id("sample"), arm=name,
++                       source="sdk_joint_query", query_start_sec=recorder.seconds(start),
++                       query_end_sec=recorder.seconds(end), time_sec=recorder.seconds(end),
++                       return_code=None if result is None else result[0], error=error)
++            if result is not None and result[0] == 0:
++                q = [math.radians(float(v) - (120.0 if i == 6 else 0.0))
++                     for i, v in enumerate(result[1])]
++                row.update({f"q{i}_rad": v for i, v in enumerate(q)})
++            recorder.emit("feedback", **row)
+ 
+     def _read_arm_api_bundle(self) -> Dict[str, Any]:
+         self._require_connected()
+@@ -836,18 +864,44 @@
+         """将 state 第 14 维替换为 UDP 实测（若有），避免指令缓存进入观测。"""
+         return self.apply_observation_gripper_to_state_15d(state_15d)
+ 
+-    def _movej_canfd(self, joint_17d: List[float]) -> None:
++    def _movej_canfd(self, joint_17d: List[float], fidelity_context=None) -> None:
+         self._require_connected()
+         joint_r = joint_17d[10:]
+         joint_l = joint_17d[3:10]
+-        movej_result_r = self.right_arm.rm_movej_canfd(joint_r, False)
+-        movej_result_l = self.left_arm.rm_movej_canfd(joint_l, False)
++        if self.trajectory_fidelity is None:
++            movej_result_r = self.right_arm.rm_movej_canfd(joint_r, False)
++            movej_result_l = self.left_arm.rm_movej_canfd(joint_l, False)
++        else:
++            pair_id = self.trajectory_fidelity.next_id("command")
++            movej_result_r = self._fidelity_send("right", self.right_arm, joint_r, pair_id, fidelity_context)
++            movej_result_l = self._fidelity_send("left", self.left_arm, joint_l, pair_id, fidelity_context)
+         if movej_result_r != 0 or movej_result_l != 0:
+             raise RuntimeError(
+                 f"rm_movej_canfd 失败: right={movej_result_r}, left={movej_result_l}"
+             )
+ 
+     
++    def _fidelity_send(self, name, arm, joints, command_id, context):
++        recorder = self.trajectory_fidelity
++        start = time.monotonic_ns()
++        result = None
++        error = ""
++        try:
++            result = arm.rm_movej_canfd(joints, False)
++            return result
++        except Exception as exc:
++            error = repr(exc)
++            raise
++        finally:
++            end = time.monotonic_ns()
++            row = dict(command_id=command_id, arm=name, **(context or {}),
++                       time_sec=recorder.seconds(start), send_start_sec=recorder.seconds(start),
++                       send_end_sec=recorder.seconds(end), return_code=result, error=error, follow=False)
++            row.update({f"sdk_q{i}_deg": float(v) for i, v in enumerate(joints)})
++            row.update({f"q{i}_rad": math.radians(float(v) - (120.0 if i == 6 else 0.0))
++                        for i, v in enumerate(joints)})
++            recorder.emit("commands", **row)
++
+     def read_state_15d(self) -> np.ndarray:
+         self._require_connected()
+         gripper_state = self._compose_gripper_for_state_vector()
+@@ -926,9 +980,12 @@
+             else:
+                 self._set_gripper_position([g[0], g[1]])
+ 
+-    def send_action_15d(self, action_full_15d: np.ndarray) -> None:
++    def send_action_15d(self, action_full_15d: np.ndarray, *, fidelity_context=None) -> None:
+         command = action_15d_to_tonggenesis_degrees(action_full_15d)
+-        self._movej_canfd(command)
++        if self.trajectory_fidelity is None:
++            self._movej_canfd(command)
++        else:
++            self._movej_canfd(command, fidelity_context=fidelity_context)
+         full = np.asarray(action_full_15d, dtype=np.float64).reshape(-1)
+         if full.size >= ORIGINAL_STATE_DIM:
+             self.note_gripper_command(
+--- /dev/null
++++ b/infer/infer/recording/trajectory_fidelity.py
+@@ -0,0 +1,153 @@
++"""Optional observation only recorder. No hardware, ROS, torch or numpy dependency."""
++from __future__ import annotations
++
++import csv
++import json
++import queue
++import threading
++import time
++from collections import Counter
++from datetime import datetime, timezone
++from pathlib import Path
++
++
++SCHEMAS = {
++    "commands": ["time_sec", "command_id", "arm", "chunk_id", "step_index",
++                 "send_start_sec", "send_end_sec", "return_code", "error", "follow",
++                 *[f"q{i}_rad" for i in range(7)], *[f"sdk_q{i}_deg" for i in range(7)]],
++    "feedback": ["time_sec", "sample_id", "arm", "source", "query_start_sec",
++                 "query_end_sec", "return_code", "error", *[f"q{i}_rad" for i in range(7)]],
++    "chunks": ["time_sec", "chunk_id", "step_index", "reference_offset_sec",
++               "state_wall_sec", "image_wall_sec", *[f"q{i}" for i in range(16)]],
++    "events": ["time_sec", "event", "chunk_id", "details_json"],
++    "gripper": ["time_sec", "source", "chunk_id", "left", "right", "details_json"],
++}
++
++
++class TrajectoryFidelityRecorder:
++    """Nonblocking producers, bounded queue, one background writer.
++
++    Constructor failures abort the requested recording before hardware starts.
++    Runtime recording failures are counted and never change robot commands.
++    A run is usable only after inspecting run_meta.json quality fields.
++    """
++
++    def __init__(self, directory, metadata=None, *, capacity=8192):
++        self.directory = Path(directory)
++        self.directory.mkdir(parents=True, exist_ok=False)
++        self.origin_ns = time.monotonic_ns()
++        self.meta = {
++            "schema_version": 1, "run_id": self.directory.parent.name,
++            "started_utc": datetime.now(timezone.utc).isoformat(),
++            "origin_monotonic_ns": self.origin_ns, "origin_wall_ns": time.time_ns(),
++            "position_unit": "radian", "sdk_position_unit": "degree",
++            "joint_convention": "TongBot J7 physical minus 120 degrees",
++            "feedback_time_semantics": "host per-arm SDK query interval; no hardware sample timestamp",
++            "source_metadata": metadata or {}, "closed": False, "run_returned": False,
++        }
++        self._queue = queue.Queue(maxsize=capacity)
++        self._lock = threading.Lock()
++        self._stop = threading.Event()
++        self._closed = False
++        self._ids = Counter()
++        self._accepted = Counter()
++        self._dropped = Counter()
++        self._written = Counter()
++        self._errors = []
++        self._files = {}
++        self._writers = {}
++        try:
++            for name, fields in SCHEMAS.items():
++                f = (self.directory / f"{name}.csv").open("w", newline="", encoding="utf-8")
++                self._files[name] = f
++                self._writers[name] = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
++                self._writers[name].writeheader()
++                f.flush()
++            self._write_meta()
++        except BaseException:
++            for f in self._files.values():
++                f.close()
++            raise
++        self._thread = threading.Thread(target=self._write_loop, name="trajectory-csv", daemon=True)
++        self._thread.start()
++
++    def seconds(self, ns=None):
++        return ((time.monotonic_ns() if ns is None else ns) - self.origin_ns) / 1e9
++
++    def next_id(self, kind):
++        with self._lock:
++            self._ids[kind] += 1
++            return self._ids[kind]
++
++    def emit(self, stream, **row):
++        try:
++            row.setdefault("time_sec", self.seconds())
++            with self._lock:
++                if self._closed:
++                    self._dropped[stream] += 1
++                    return
++                try:
++                    self._queue.put_nowait((stream, row))
++                    self._accepted[stream] += 1
++                except queue.Full:
++                    self._dropped[stream] += 1
++        except Exception as exc:
++            with self._lock:
++                self._dropped[stream] += 1
++                if len(self._errors) < 10:
++                    self._errors.append(repr(exc))
++
++    def event(self, name, *, chunk_id=None, **details):
++        self.emit("events", event=name, chunk_id=chunk_id,
++                  details_json=json.dumps(details, default=str, ensure_ascii=False))
++
++    def _write_loop(self):
++        last_flush = time.monotonic()
++        while not self._stop.is_set() or not self._queue.empty():
++            try:
++                stream, row = self._queue.get(timeout=0.1)
++            except queue.Empty:
++                continue
++            try:
++                self._writers[stream].writerow(row)
++                self._written[stream] += 1
++                if time.monotonic() - last_flush > 1:
++                    for f in self._files.values():
++                        f.flush()
++                    last_flush = time.monotonic()
++            except Exception as exc:
++                if len(self._errors) < 10:
++                    self._errors.append(repr(exc))
++
++    def _write_meta(self):
++        p = self.directory / "run_meta.json"
++        tmp = p.with_suffix(".tmp")
++        tmp.write_text(json.dumps(self.meta, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
++        tmp.replace(p)
++
++    def close(self, *, run_returned=False):
++        with self._lock:
++            if self._closed:
++                return
++            self._closed = True
++        self._stop.set()
++        self._thread.join()
++        for f in self._files.values():
++            try:
++                f.close()
++            except Exception as exc:
++                self._errors.append(repr(exc))
++        self.meta.update(closed=True, run_returned=run_returned,
++                         accepted=dict(self._accepted), written=dict(self._written),
++                         dropped=dict(self._dropped), errors=list(self._errors),
++                         ended_utc=datetime.now(timezone.utc).isoformat())
++        self.meta["recording_complete"] = (
++            not self._errors and not any(self._dropped.values())
++            and self._accepted == self._written
++        )
++        try:
++            self._write_meta()
++        except Exception:
++            # The initial metadata remains closed=False, explicitly incomplete.
++            import logging
++            logging.getLogger(__name__).exception("轨迹记录元数据写入失败")
+--- a/infer/infer/runners/async_chunk_engine.py
++++ b/infer/infer/runners/async_chunk_engine.py
+@@ -170,6 +170,18 @@
+             delay_sec=delay_sec,
+             horizon=int(chunk.shape[0]),
+         )
++        fidelity = getattr(self, "_trajectory_fidelity", None)
++        if fidelity is not None:
++            self._fidelity_active_chunk_id = job.get("fidelity_chunk_id")
++            fidelity.event("chunk_install", chunk_id=self._fidelity_active_chunk_id,
++                           start_index=index, delay_sec=delay_sec, horizon=int(chunk.shape[0]),
++                           task_index=self._current_task_index)
++            for point_index, point in enumerate(chunk):
++                fidelity.emit("chunks", chunk_id=self._fidelity_active_chunk_id,
++                              step_index=point_index,
++                              reference_offset_sec=point_index / float(self.cfg.session.fps),
++                              state_wall_sec=job["state_ts"], image_wall_sec=job["image_ts"],
++                              **{f"q{i}": float(v) for i, v in enumerate(point)})
+         self._async_chunk = chunk
+         self._async_timed = timed
+         self._async_log_ctx = {
+@@ -255,8 +267,18 @@
+         gen = self._async_gen
+         copied = self._copy_policy_frame(frame)
+ 
++        fidelity = getattr(self, "_trajectory_fidelity", None)
++        if fidelity is not None:
++            job["fidelity_chunk_id"] = fidelity.next_id("chunk")
++            fidelity.event("chunk_request", chunk_id=job["fidelity_chunk_id"],
++                           state_wall_sec=job["state_ts"], image_wall_sec=job["image_ts"])
++
+         def _run() -> Any:
+-            return self.policy.run_timed_inference(copied)
++            try:
++                return self.policy.run_timed_inference(copied)
++            finally:
++                if fidelity is not None:
++                    fidelity.event("chunk_worker_end", chunk_id=job["fidelity_chunk_id"])
+ 
+         self._async_future = pool.submit(_run)
+         self._async_job = job
+--- a/infer/infer/runners/async_chunk_runner.py
++++ b/infer/infer/runners/async_chunk_runner.py
+@@ -21,6 +21,7 @@
+     cfg: InferConfig,
+     *,
+     replan_steps: Optional[int] = None,
++    trajectory_fidelity: bool = False,
+ ) -> List[Path]:
+     """与 native 会话相同的目录和收尾，执行时用 AsyncChunkEngine。"""
+     inference_dir = cfg.resolve_inference_dir()
+@@ -45,6 +46,8 @@
+             if not pedal_hub.start():
+                 logger.warning("脚踏板/外骨骼热键监听未启动（需 pynput）")
+                 pedal_hub = None
++        recorder = None
++        run_returned = False
+         try:
+             engine = AsyncChunkEngine(
+                 cfg,
+@@ -53,8 +56,37 @@
+                 pedal_hub=pedal_hub,
+                 replan_steps=replan_steps,
+             )
++            if trajectory_fidelity:
++                if engine._direct_robot is None:
++                    raise ValueError("轨迹保真度首版仅支持 direct_robot 模式")
++                from dataclasses import asdict
++                import hashlib
++                from infer.recording.trajectory_fidelity import TrajectoryFidelityRecorder
++                package = Path(__file__).resolve().parents[1]
++                source_hashes = {
++                    str(path.relative_to(package)): hashlib.sha256(path.read_bytes()).hexdigest()
++                    for path in (
++                        package / "runners/async_chunk_engine.py",
++                        package / "runners/async_chunk_runner.py",
++                        package / "core/engine.py",
++                        package / "io/direct_robot_io.py",
++                        package / "recording/trajectory_fidelity.py",
++                    )
++                }
++                recorder = TrajectoryFidelityRecorder(
++                    run_dir / "trajectory_fidelity",
++                    metadata={"config": asdict(cfg), "source_sha256": source_hashes,
++                              "hardware_versions": "not queried; fill in experiment record"},
++                )
++                engine._trajectory_fidelity = recorder
++                engine._direct_robot.trajectory_fidelity = recorder
++                recorder.event("run_start")
+             result = engine.run()
++            run_returned = True
+         finally:
++            if recorder is not None:
++                recorder.event("run_end", returned=run_returned)
++                recorder.close(run_returned=run_returned)
+             if pedal_hub is not None:
+                 pedal_hub.stop()
+         test_dirs.append(result)
+--- /dev/null
++++ b/infer/infer/tests/test_trajectory_fidelity.py
+@@ -0,0 +1,309 @@
++"""Hardware-free D1 checks: SDK behavior, queue integrity and known trajectory errors."""
++import csv
++import ast
++import __future__
++import importlib.util
++import json
++import math
++import queue
++import time
++from types import SimpleNamespace
++from concurrent.futures import ThreadPoolExecutor
++from pathlib import Path
++
++import numpy as np
++import pytest
++
++from infer.config_loader import DirectRobotConfig
++from infer.io.direct_robot_io import DirectTongGenesisRobot
++from infer.recording.trajectory_fidelity import TrajectoryFidelityRecorder
++
++
++def rows(root, name):
++    with (root / f"{name}.csv").open() as f:
++        return list(csv.DictReader(f))
++
++
++class FakeArm:
++    def __init__(self, name, calls, result=0, raises=False):
++        self.name, self.calls, self.result, self.raises = name, calls, result, raises
++
++    def rm_movej_canfd(self, joints, follow):
++        self.calls.append((self.name, list(joints), follow))
++        if self.raises:
++            raise OSError("simulated SDK failure")
++        return self.result
++
++    def rm_get_joint_degree(self):
++        return self.result, [10., 20., 30., 40., 50., 60., 130.]
++
++
++def robot(recorder=None, *, result=0, raises=False):
++    calls = []
++    r = DirectTongGenesisRobot(DirectRobotConfig())
++    r.right_arm = FakeArm("right", calls, result=result, raises=raises)
++    r.left_arm = FakeArm("left", calls)
++    r.trajectory_fidelity = recorder
++    # Avoid hardware connection check, retain all send and query implementation.
++    r._require_connected = lambda: None
++    return r, calls
++
++
++def load_analyzer():
++    p = Path(__file__).resolve().parents[2] / "tools" / "analyze_trajectory_fidelity.py"
++    spec = importlib.util.spec_from_file_location("fidelity_analysis", p)
++    m = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(m)
++    return m
++
++
++def test_recording_preserves_parameters_order_and_normalization(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    enabled, actual = robot(rec)
++    baseline, expected = robot()
++    q = np.linspace(-0.2, 0.2, 16)
++    baseline.send_action_15d(q)
++    enabled.send_action_15d(q, fidelity_context={"chunk_id": 5, "step_index": 3})
++    rec.close(run_returned=True)
++    assert actual == expected
++    assert [v[0] for v in actual] == ["right", "left"]
++    assert all(v[2] is False for v in actual)
++    data = rows(rec.directory, "commands")
++    assert len(data) == 2
++    assert data[0]["command_id"] == data[1]["command_id"]
++    assert data[0]["chunk_id"] == "5" and data[0]["step_index"] == "3"
++    np.testing.assert_allclose([float(data[1][f"q{i}_rad"]) for i in range(7)], q[:7], atol=1e-12)
++    np.testing.assert_allclose([float(data[0][f"q{i}_rad"]) for i in range(7)], q[7:14], atol=1e-12)
++    for row in data:
++        assert float(row["send_end_sec"]) >= float(row["send_start_sec"])
++    assert json.loads((rec.directory / "run_meta.json").read_text())["recording_complete"]
++
++
++@pytest.mark.parametrize("raises", [False, True])
++def test_sdk_failure_behavior_and_recording(tmp_path, raises):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    r, calls = robot(rec, result=4, raises=raises)
++    with pytest.raises(OSError if raises else RuntimeError):
++        r.send_action_15d(np.zeros(16))
++    rec.close()
++    assert len(calls) == (1 if raises else 2)
++    data = rows(rec.directory, "commands")
++    assert len(data) == len(calls)
++    assert data[0]["error"] if raises else data[0]["return_code"] == "4"
++    assert not json.loads((rec.directory / "run_meta.json").read_text())["run_returned"]
++
++
++def test_parallel_feedback_query_intervals_and_j7_conversion(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    r, _ = robot(rec)
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        r.executor = pool
++        assert len(r._read_joint_positions()) == 14
++    rec.close(run_returned=True)
++    data = rows(rec.directory, "feedback")
++    assert {r["arm"] for r in data} == {"left", "right"}
++    for row in data:
++        assert float(row["q6_rad"]) == pytest.approx(math.radians(10))
++        assert float(row["query_end_sec"]) >= float(row["query_start_sec"])
++
++
++def test_bounded_queue_loss_is_not_silent(tmp_path, monkeypatch):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    def full(item):
++        raise queue.Full
++    with monkeypatch.context() as m:
++        m.setattr(rec._queue, "put_nowait", full)
++        rec.event("lost")
++    rec.event("kept")
++    rec.close(run_returned=True)
++    rec.close(run_returned=True)
++    meta = json.loads((rec.directory / "run_meta.json").read_text())
++    assert meta["dropped"]["events"] == 1
++    assert not meta["recording_complete"]
++    assert len(rows(rec.directory, "events")) == 1
++
++
++def test_boundary_details_can_include_event_key(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    rec.event("task_boundary", **{"event": "end", "reason": "pedal"})
++    rec.close()
++    row = rows(rec.directory, "events")[0]
++    assert row["event"] == "task_boundary"
++    assert json.loads(row["details_json"])["event"] == "end"
++
++
++def test_writer_error_does_not_hide_incomplete_recording(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    class BrokenWriter:
++        def writerow(self, row):
++            raise OSError("disk failure")
++    rec._writers["events"] = BrokenWriter()
++    rec.event("test")
++    rec.close()
++    meta = json.loads((rec.directory / "run_meta.json").read_text())
++    assert not meta["recording_complete"] and meta["errors"]
++
++
++def test_existing_run_is_never_overwritten(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    rec.close()
++    with pytest.raises(FileExistsError):
++        TrajectoryFidelityRecorder(rec.directory)
++
++
++def test_reference_matching_is_causal_and_excludes_gaps_and_failures():
++    m = load_analyzer()
++    q = np.array([[1.] * 7, [np.nan] * 7, [3.] * 7])
++    ref, valid, age = m.match_reference([1., 2., 3.], q, [0.9, 1.1, 1.8, 2.1, 3.1], max_gap=0.3)
++    assert list(valid) == [False, True, False, False, True]
++    assert ref[1, 0] == 1 and ref[-1, 0] == 3
++
++
++def synthetic_run(root):
++    rec = TrajectoryFidelityRecorder(root, metadata={"synthetic": True})
++    for k in range(20):
++        t = 0.1 + k / 15
++        for arm in ("left", "right"):
++            offset = 0.001 if arm == "left" else 0
++            rec.emit("commands", time_sec=t + offset, command_id=k, arm=arm,
++                     chunk_id=k // 5, step_index=k % 5, send_start_sec=t + offset,
++                     send_end_sec=t + offset + 0.0001, return_code=0, follow=False,
++                     **{f"q{i}_rad": 0.01 * k for i in range(7)})
++            rec.emit("feedback", time_sec=t + 0.03, sample_id=2*k + (arm == "left"),
++                     arm=arm, source="synthetic", query_start_sec=t + 0.02,
++                     query_end_sec=t + 0.03, return_code=0,
++                     **{f"q{i}_rad": 0.01 * k + 0.02 for i in range(7)})
++        if k % 5 == 0:
++            rec.emit("events", time_sec=t, event="chunk_install", chunk_id=k // 5,
++                     details_json="{}")
++    rec.close(run_returned=True)
++
++
++def test_known_offset_metrics_and_export(tmp_path):
++    root = tmp_path / "synthetic"
++    synthetic_run(root)
++    report = load_analyzer().analyze(root, plots=False)
++    assert not report["quality_issues"]
++    for arm in ("left", "right"):
++        assert report["arms"][arm]["matched_samples"] == 20
++        for row in report["arms"][arm]["joint_error_rad"]:
++            assert row["rmse"] == pytest.approx(0.02)
++        assert (root / "analysis" / f"commands_{arm}.csv").exists()
++    assert report["left_minus_right_send_start_sec"]["p50"] == pytest.approx(0.001)
++
++
++def test_empty_and_aborted_recording_cannot_look_like_good_metrics(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "empty")
++    rec.close()
++    report = load_analyzer().analyze(rec.directory, plots=False)
++    assert report["quality_issues"]
++    assert "joint_error_rad" not in report["arms"]["left"]
++
++
++def test_query_interval_straddling_send_is_excluded(tmp_path):
++    root = tmp_path / "synthetic"
++    synthetic_run(root)
++    data = rows(root, "feedback")
++    data[0]["query_start_sec"] = "0"
++    with (root / "feedback.csv").open("w", newline="") as f:
++        w = csv.DictWriter(f, fieldnames=data[0].keys())
++        w.writeheader()
++        w.writerows(data)
++    report = load_analyzer().analyze(root, plots=False)
++    arm = data[0]["arm"]
++    assert report["arms"][arm]["excluded_samples"] == 1
++
++
++def extract_method(path, class_name, name, namespace):
++    tree = ast.parse(path.read_text())
++    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == class_name)
++    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name)
++    module = ast.Module(body=[method], type_ignores=[])
++    exec(compile(module, str(path), "exec", flags=__future__.annotations.compiler_flag), namespace)
++    return namespace[name]
++
++
++def test_real_engine_send_hook_and_pause_gate(tmp_path):
++    """Execute real engine method without importing GPU/GUI dependencies."""
++    from infer.io.robot_io import pack_tongbot_control_packets
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    r, calls = robot(rec)
++    packets = []
++    path = Path(__file__).resolve().parents[1] / "core/engine.py"
++    send = extract_method(path, "InferEngine", "_send_action_step", {
++        "time": time, "infer_gripper_udp_channel": lambda dims: 1,
++        "pack_tongbot_control_packets": pack_tongbot_control_packets,
++        "q_control_send": lambda data, sock, port: packets.append(list(data)),
++    })
++    engine = SimpleNamespace(_exo_safety=None, _device_health=None,
++        policy=SimpleNamespace(keep_dims=list(range(16))),
++        cfg=SimpleNamespace(policy=SimpleNamespace(keep_dims=list(range(16))),
++                            direct_robot=SimpleNamespace(gripper_mode="udp")),
++        _direct_robot=r, _trajectory_fidelity=rec)
++    send(engine, np.zeros(16), None, object(), ("none", 0), ("none", 0),
++         fidelity_context={"chunk_id": 9, "step_index": 2})
++    assert len(calls) == 2 and len(packets) == 1
++    engine._exo_safety = SimpleNamespace(pauses_inference=True)
++    assert send(engine, np.zeros(16), None, None, None, None) == 0
++    assert len(calls) == 2
++    rec.close(run_returned=True)
++    assert rows(rec.directory, "commands")[0]["chunk_id"] == "9"
++    assert rows(rec.directory, "gripper")[0]["source"] == "udp_command_sent"
++
++
++def test_real_engine_boundary_hook_preserves_arbitrary_payload(tmp_path):
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    path = Path(__file__).resolve().parents[1] / "core/engine.py"
++    method = extract_method(path, "InferEngine", "_flow_event", {})
++    captured = []
++    engine = SimpleNamespace(flow=SimpleNamespace(event=lambda *args: captured.append(args)),
++                             _trajectory_fidelity=rec, _device_health=None)
++    payload = {"event": "end", "name": "task", "reason": "pedal"}
++    method(engine, "task_boundary", payload)
++    rec.close()
++    assert captured == [("task_boundary", payload)]
++    assert json.loads(rows(rec.directory, "events")[0]["details_json"])["details"] == payload
++
++
++def test_analysis_does_not_carry_reference_across_task_boundary(tmp_path):
++    root = tmp_path / "synthetic"
++    synthetic_run(root)
++    with (root / "events.csv").open("a", newline="") as f:
++        csv.writer(f).writerow([0.115, "task_boundary", "", '{"event":"end"}'])
++    report = load_analyzer().analyze(root, plots=False)
++    assert report["arms"]["left"]["excluded_samples"] == 1
++    assert report["arms"]["right"]["excluded_samples"] == 1
++
++
++def test_real_async_submission_and_installation_hooks(tmp_path):
++    from infer.runners.async_chunk import AsyncChunkScheduler
++    path = Path(__file__).resolve().parents[1] / "runners/async_chunk_engine.py"
++    rec = TrajectoryFidelityRecorder(tmp_path / "record")
++    namespace = {"time": time, "np": np, "logging": __import__("logging")}
++    submit = extract_method(path, "AsyncChunkEngine", "_submit_async", namespace)
++    install = extract_method(path, "AsyncChunkEngine", "_install_async_chunk", namespace)
++    q = np.arange(160).reshape(10, 16) / 1000
++    timed = SimpleNamespace(post_action=q, raw_action=q, infer_sec=0.2,
++                            preprocess_sec=0.01, model_sec=0.19, postprocess_sec=0)
++    job = dict(frame_idx=0, state=np.zeros(16), state_ts=123., image_ts=122.99,
++               img_diff=0.01, model_state=np.zeros(16), keep_dims=np.arange(16), images=[])
++    with ThreadPoolExecutor(max_workers=1) as pool:
++        engine = SimpleNamespace(_trajectory_fidelity=rec, _async_gen=0,
++            _ensure_async_pool=lambda: pool, _copy_policy_frame=lambda f: f.copy(),
++            policy=SimpleNamespace(run_timed_inference=lambda f: timed),
++            _async_sched=AsyncChunkScheduler(15, 5), _async_logged=True,
++            _flush_async_eval=lambda: None, _infer_timing_log=[],
++            _note_ik=lambda t: None, _write_infer_probe=lambda *a, **k: None,
++            _record_tick=lambda **k: None, _flow_event=lambda *a: None,
++            _human_log=lambda *a: None, _current_task_index=1,
++            cfg=SimpleNamespace(session=SimpleNamespace(fps=15),
++                                policy=SimpleNamespace(task_prompt="test")))
++        submit(engine, {}, job)
++        output = engine._async_future.result(timeout=2)
++        assert install(engine, output, job, delay_sec=0.2) == 1
++        assert engine._async_sched.index == 3
++    rec.close(run_returned=True)
++    assert len(rows(rec.directory, "chunks")) == 10
++    assert {r["event"] for r in rows(rec.directory, "events")} == {
++        "chunk_request", "chunk_worker_end", "chunk_install"}
++    assert engine._fidelity_active_chunk_id == job["fidelity_chunk_id"]
+--- /dev/null
++++ b/infer/tools/analyze_trajectory_fidelity.py
+@@ -0,0 +1,181 @@
++#!/usr/bin/env python3
++"""Offline D1 first release: raw-time ZOH comparison, never a physical accuracy claim."""
++from __future__ import annotations
++
++import argparse
++import csv
++import json
++from pathlib import Path
++
++import numpy as np
++
++
++def read_rows(path):
++    with Path(path).open(newline="", encoding="utf-8") as f:
++        return list(csv.DictReader(f))
++
++
++def stats(values):
++    a = np.asarray(values, dtype=float)
++    a = a[np.isfinite(a)]
++    if not a.size:
++        return {"count": 0}
++    return {"count": int(a.size), "p50": float(np.percentile(a, 50)),
++            "p95": float(np.percentile(a, 95)), "p99": float(np.percentile(a, 99)),
++            "max": float(a.max())}
++
++
++def match_reference(command_times, targets, feedback_times, *, max_gap=0.3):
++    """At feedback query END, ZOH from last attempted command; failures break support.
++
++    No extrapolation beyond max_gap, no future commands, no time-shift fitting.
++    Query interval uncertainty is additionally filtered by analyze().
++    """
++    times = np.asarray(command_times)
++    feedback_times = np.asarray(feedback_times)
++    index = np.searchsorted(times, feedback_times, side="right") - 1
++    valid = index >= 0
++    index = np.maximum(index, 0)
++    age = feedback_times - times[index]
++    ref = np.asarray(targets)[index]
++    valid &= (age <= max_gap) & np.isfinite(ref).all(axis=1)
++    return ref, valid, age
++
++
++def write_signals(path, times, values, prefix):
++    with path.open("w", newline="", encoding="utf-8") as f:
++        w = csv.writer(f)
++        w.writerow(["time_sec", *[f"{prefix}_j{i+1}_rad" for i in range(7)]])
++        w.writerows([t, *q] for t, q in zip(times, values))
++
++
++def analyze(directory, *, max_gap=0.3, plots=True):
++    root = Path(directory)
++    meta = json.loads((root / "run_meta.json").read_text())
++    if meta.get("schema_version") != 1:
++        raise ValueError("Unsupported schema version")
++    commands = read_rows(root / "commands.csv")
++    feedback = read_rows(root / "feedback.csv")
++    events = read_rows(root / "events.csv")
++    out = root / "analysis"
++    out.mkdir(exist_ok=True)
++    issues = []
++    if not meta.get("closed") or not meta.get("recording_complete"):
++        issues.append("Recorder incomplete, dropped rows, or writer errors: metrics are exploratory only")
++    if not meta.get("run_returned"):
++        issues.append("Inference did not return normally")
++    if not commands or not feedback:
++        issues.append("Missing commands or feedback")
++    report = {
++        "schema_version": 1, "comparison": "host query end vs last command start; ZOH",
++        "synthetic_data": bool(meta.get("source_metadata", {}).get("synthetic", False)),
++        "limitations": ["Not controller receipt time or hardware sampling time",
++                        "Query intervals containing command transitions are excluded",
++                        "No fitted physical delay, FK, or task success assessment in this release"],
++        "max_reference_age_sec": max_gap, "quality_issues": issues, "arms": {},
++    }
++    if plots:
++        import matplotlib
++        matplotlib.use("Agg")
++        import matplotlib.pyplot as plt
++    boundary_times = [float(r["time_sec"]) for r in events if r["event"] == "chunk_install"]
++    barriers = np.array(sorted(float(r["time_sec"]) for r in events
++                               if r["event"] in {"task_boundary", "group_boundary", "run_end"}
++                               or r["event"].startswith(("exo_", "device_"))))
++    for arm in ("left", "right"):
++        c = sorted([r for r in commands if r["arm"] == arm], key=lambda r: float(r["send_start_sec"]))
++        f = sorted([r for r in feedback if r["arm"] == arm and r["return_code"] == "0"
++                    and not r["error"] and all(r[f"q{i}_rad"] != "" for i in range(7))],
++                   key=lambda r: float(r["query_end_sec"]))
++        result = {"command_attempts": len(c), "feedback_valid_rows": len(f),
++                  "failed_commands": sum(r["return_code"] != "0" or bool(r["error"]) for r in c),
++                  "failed_feedback": sum(r["arm"] == arm and (r["return_code"] != "0" or bool(r["error"]))
++                                         for r in feedback)}
++        report["arms"][arm] = result
++        if not c or not f:
++            continue
++        ct = np.array([float(r["send_start_sec"]) for r in c])
++        cq = np.array([[float(r[f"q{i}_rad"]) for i in range(7)] for r in c])
++        for k, row in enumerate(c):
++            if row["return_code"] != "0" or row["error"] or not row["chunk_id"]:
++                cq[k] = np.nan
++        ft = np.array([float(r["query_end_sec"]) for r in f])
++        fs = np.array([float(r["query_start_sec"]) for r in f])
++        fq = np.array([[float(r[f"q{i}_rad"]) for i in range(7)] for r in f])
++        ref, valid, age = match_reference(ct, cq, ft, max_gap=max_gap)
++        # A command sent during the query makes the association ambiguous.
++        start_index = np.searchsorted(ct, fs, side="right") - 1
++        end_index = np.searchsorted(ct, ft, side="right") - 1
++        valid &= (start_index == end_index) & (ft >= fs)
++        if barriers.size:
++            barrier_index = np.searchsorted(barriers, ft, side="right") - 1
++            last_barrier = np.where(barrier_index >= 0, barriers[np.maximum(barrier_index, 0)], -np.inf)
++            command_index = np.maximum(end_index, 0)
++            valid &= ct[command_index] >= last_barrier
++        result.update(send_intervals_sec=stats(np.diff(ct)), feedback_intervals_sec=stats(np.diff(ft)),
++                      query_durations_sec=stats(ft - fs), reference_age_sec=stats(age[valid]),
++                      matched_samples=int(valid.sum()), excluded_samples=int((~valid).sum()))
++        delta = fq[valid] - ref[valid]
++        if delta.size:
++            result["joint_error_rad"] = [
++                {"joint": i + 1, "rmse": float(np.sqrt(np.mean(delta[:, i] ** 2))),
++                 "abs_p95": float(np.percentile(np.abs(delta[:, i]), 95)),
++                 "abs_max": float(np.abs(delta[:, i]).max())} for i in range(7)]
++        write_signals(out / f"commands_{arm}.csv", ct, cq, f"target_{arm}")
++        write_signals(out / f"feedback_{arm}.csv", ft, fq, f"measured_{arm}")
++        with (out / f"matched_{arm}.csv").open("w", newline="", encoding="utf-8") as handle:
++            w = csv.writer(handle)
++            w.writerow(["time_sec", "reference_age_sec", *[f"error_j{i+1}_rad" for i in range(7)]])
++            w.writerows([t, a, *e] for t, a, e in zip(ft[valid], age[valid], delta))
++        if plots:
++            fig, axes = plt.subplots(7, 2, figsize=(15, 16), sharex=True)
++            for i in range(7):
++                axes[i, 0].step(ct, cq[:, i], where="post", label="sent target")
++                axes[i, 0].plot(ft, fq[:, i], ".-", markersize=2, label="feedback (query end)")
++                axes[i, 0].set_ylabel(f"J{i+1} rad")
++                axes[i, 1].plot(ft[valid], delta[:, i] if delta.size else [], ".", markersize=2)
++                axes[i, 1].set_ylabel("error rad")
++                for b in boundary_times:
++                    for ax in axes[i]:
++                        ax.axvline(b, color="gray", alpha=0.2)
++            axes[0, 0].legend()
++            axes[0, 1].set_title("Matched samples only; unshifted time axis")
++            axes[-1, 0].set_xlabel("monotonic elapsed seconds")
++            axes[-1, 1].set_xlabel("monotonic elapsed seconds")
++            label = "SYNTHETIC DEMO — " if report["synthetic_data"] else ""
++            fig.suptitle(f"{label}{arm}: gray lines = chunk installations")
++            fig.tight_layout()
++            fig.savefig(out / f"tracking_{arm}.png", dpi=130)
++            plt.close(fig)
++            fig, ax = plt.subplots(figsize=(10, 3))
++            ax.plot(ct[1:], np.diff(ct) * 1000, ".-", label="send interval")
++            ax.plot(ft[1:], np.diff(ft) * 1000, ".-", label="feedback interval")
++            ax.set(xlabel="seconds", ylabel="milliseconds", title=arm)
++            ax.legend()
++            fig.tight_layout()
++            fig.savefig(out / f"timing_{arm}.png", dpi=130)
++            plt.close(fig)
++    pairs = {}
++    for r in commands:
++        pairs.setdefault(r["command_id"], {})[r["arm"]] = float(r["send_start_sec"])
++    skew = [v["left"] - v["right"] for v in pairs.values() if "left" in v and "right" in v]
++    report["left_minus_right_send_start_sec"] = stats(skew)
++    report["dual_arm_skew_semantics"] = "SDK submission gap, not physical synchronization error"
++    (out / "summary.json").write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
++    return report
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("directory", type=Path, help="run/trajectory_fidelity directory")
++    parser.add_argument("--max-gap", type=float, default=0.3)
++    parser.add_argument("--no-plots", action="store_true")
++    args = parser.parse_args()
++    if args.max_gap <= 0:
++        parser.error("--max-gap must be positive")
++    report = analyze(args.directory, max_gap=args.max_gap, plots=not args.no_plots)
++    print(json.dumps(report, indent=2))
++
++
++if __name__ == "__main__":
++    main()
+--- a/recipes/pi05/run_current_tk.sh
++++ b/recipes/pi05/run_current_tk.sh
+@@ -18,4 +18,4 @@
+ echo "[run_current_tk] yaml = $YAML"
+ echo "[run_current_tk] ckpt = $CKPT"
+ 
+-exec bash "$ROOT/recipes/pi05/run_tk_pi05.sh" "${1:-check}" "$YAML" "$CKPT"
++exec bash "$ROOT/recipes/pi05/run_tk_pi05.sh" "${1:-check}" "$YAML" "$CKPT" "${@:2}"
+--- a/recipes/pi05/run_tk_pi05.sh
++++ b/recipes/pi05/run_tk_pi05.sh
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ ROOT=/home/tk/data_Driven
+-if [[ $# -ne 3 || ! "$1" =~ ^(check|server|client)$ ]]; then
++if [[ $# -lt 3 || ! "$1" =~ ^(check|server|client)$ ]]; then
+   echo "Usage: bash $0 check|server|client /absolute/path/config.yaml /absolute/path/pretrained_model" >&2
+   exit 2
+ fi
+@@ -21,7 +21,7 @@
+   echo "Config: $PI05_CONFIG"
+   echo "Entry:  python -m infer.cli.run_async_infer"
+   echo "=================================="
+-  exec "$PI05_PYTHON" -m infer.cli.run_async_infer --config "$PI05_CONFIG"
++  exec "$PI05_PYTHON" -m infer.cli.run_async_infer --config "$PI05_CONFIG" "${@:4}"
+ else
+   exec bash "$ROOT/recipes/pi05/launch_pi05_${MODE}.sh"
+ fi

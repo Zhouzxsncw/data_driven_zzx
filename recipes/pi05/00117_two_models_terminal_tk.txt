@@ -1,0 +1,28 @@
+目标电脑：tk@10.151.91.152
+在远程电脑桌面的 Terminal 执行以下命令。
+两个模型共用端口 1297，按顺序测试，每次只运行一个客户端。切换前先在客户端按 Ctrl+C 退出；server 命令会替换已有 PI05 服务。
+客户端走 infer.cli.run_async_infer：15 Hz 持续下发当前 chunk，后台计算下一 chunk，新 chunk 到达即替换缓存。
+模型 horizon=50；replan_steps=5，每 5 个控制周期在后台提交下一包；根据推理耗时跳过新 chunk 已过期前缀。RTC 保持关闭。
+SKIP_LOWER_MACHINE=1 复用现有下位机服务。
+
+模型 step 1302
+Terminal 1（服务端）：
+cd /home/tk/data_Driven
+bash recipes/pi05/run_00117_step001302_tk.sh server
+tail -f recipes/pi05/server_00117_compare_step001302_tk.log
+出现 listening 后，Terminal 2（客户端）：
+cd /home/tk/data_Driven
+bash recipes/pi05/run_00117_step001302_tk.sh client
+
+模型 step 1674
+Terminal 1（服务端）：
+cd /home/tk/data_Driven
+bash recipes/pi05/run_00117_step001674_tk.sh server
+tail -f recipes/pi05/server_00117_compare_step001674_tk.log
+出现 listening 后，Terminal 2（客户端）：
+cd /home/tk/data_Driven
+bash recipes/pi05/run_00117_step001674_tk.sh client
+
+1302：现存 checkpoint 中最低验证 loss = 0.0421803。
+1674：距离训练曲线最低点 step 1700（train loss 0.0137014）最近的保留权重；1674 本身没有精确 train loss 记录。
+保留目标机原有相机、机械臂、初始姿态设置；动作块长度 50，推理 FPS 15。

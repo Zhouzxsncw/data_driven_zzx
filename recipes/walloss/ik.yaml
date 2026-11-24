@@ -1,0 +1,14 @@
+# 服务端 --ik-config / WALLOSS_IK_CONFIG 示例。
+# 也可直接指向客户端 YAML（会读 policy.ik）。
+# 默认 abort_rest + realman，与改本功能之前一致。
+mode: abort_rest
+solver: realman
+traj_opt: none
+max_joint_step_deg: 40
+arm_angle_step_deg: 15
+abort_on_held: true
+psi_step_deg: 8
+split_max_substeps: 4
+dls_lambda: 0.08
+dls_iters: 12
+dls_pos_step_m: 0.012

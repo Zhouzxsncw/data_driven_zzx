@@ -1,0 +1,118 @@
+# τ0-WM (智元 · 罗剑岚团队, arXiv:2606.01027) 在 TongBot 00036 上的后训练配置
+# 骨架来自官方 configs/tau_model/posttrain_taco_play_abs.yaml，改动点见行内注释。
+# 载入的预训练权重 action_in_dim=20（EEF 相对位姿），这里换成 16（关节绝对），
+# utils/model_utils.load_checkpoints 的 ignore_mismatched_sizes=True 会把
+# action_proj_in / action_head 留作随机初始化，其余全部继承 —— 官方 taco 示例改 7 维走的就是同一条路。
+allow_tf32: false                         # [补] 官方 yaml 有、我们漏了；runner/posttrain.py:504
+                                          # 无条件读 self.args.allow_tf32，缺则 AttributeError
+batch_size: 8                             # [改] 官方 12；gpu-master 单卡需先冒烟实测再定
+beta1: 0.9
+beta2: 0.95
+beta3: 0.999
+caption_dropout_p: 0.06
+data:
+  public_args:
+    action_chunk: 33
+    action_space: joint
+    action_type: absolute
+    chunk: 9
+    ignore_seek: false
+  train:
+  - configs/data/tongbot/00036_abs_joint.yaml      # [改] TongBot 00036
+  val:
+  - configs/data/tongbot/00036_abs_joint.yaml
+dataloader_num_workers: 6                   # [改] 官方 8；gpu-master 只有 20 核，留余量给两路推理服务
+deepspeed:
+  bf16:
+    enabled: true
+  fp16:
+    enabled: false
+  gradient_clipping: 1.0
+  zero_optimization:
+    stage: 1
+diffusion_model:
+  config:
+    action_dim: 1024
+    action_ffn_dim: 2048
+    action_in_dim: 16                       # [改] 官方示例 7 / 预训练 20 → TongBot 双臂 16
+    action_max_seq_len: 60
+    action_num_heads: 16
+    cross_attn_norm: true
+    dim: 3072
+    eps: 1.0e-06
+    ffn_dim: 14336
+    freq_dim: 256
+    in_dim: 48
+    model_type: ti2v
+    num_heads: 24
+    num_layers: 30
+    out_dim: 48
+    patch_size:
+    - 1
+    - 2
+    - 2
+    qk_norm: true
+    text_dim: 4096
+    text_len: 512
+    use_ae: true
+    window_size:
+    - - -1
+      - 1
+  model_path: /data/pretrained/tau-0-wm    # [改] VAM 权重目录（含 config.json + 两个 .bin 分片）
+diffusion_model_class: WanModel
+diffusion_model_class_path: models/wan_2_2_models/transformers/model.py
+diffusion_scheduler_class: FlowUniPCMultistepScheduler
+diffusion_scheduler_class_path: models/wan_2_2_models/scheduler/fm_solvers_unipc.py
+epsilon: 1e-8
+flow_logit_mean: 0.0
+flow_logit_std: 1.0
+gradient_accumulation_steps: 1
+gradient_checkpointing: true                # [改] 官方 false；单卡 96G 且有两个推理服务在占 18G，先开着
+load_weights: true
+logging_dir: logs
+lr: 5e-5
+lr_num_cycles: 1
+lr_power: 1.0
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 1000
+max_grad_norm: 1.0
+mixed_precision: bf16
+model_name: tau_train_posttrain_tongbot_00036
+nccl_timeout: 1000
+noisy_video: false
+num_inference_step: 10
+optimizer: adamw
+optimizer_8bit: false
+optimizer_torchao: false
+output_dir: /data/tau0_wm_runs/tongbot_00036   # [改] 落 /data（/ 只剩 109G，历史教训：撑满会写坏 ckpt）
+sub_folder: tau0wm_vam5b_absjoint_192x256_bs8   # [改] 固定 ckpt 目录名（默认是启动时间戳，舰队监控不好定位）
+pin_memory: true
+pipeline_class: WanTI2V
+pipeline_class_path: models/wan_2_2_models/pipeline/textimage2video.py
+repeat_in_batch: 1
+report_to: None
+return_action: true
+return_video: true
+scale_lr: false
+seed: 3331459158
+steps_to_log: 20
+steps_to_val: 2000
+steps_to_save: 5000                         # [改] 官方 2000；每份 step ckpt ≈ 11 G，2000 一步会写爆 /data
+text_encoder:
+  checkpoint_path: /data/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+  text_len: 512
+  tokenizer_path: /data/pretrained/Wan2.2-TI2V-5B/google/umt5-xxl
+textenc_class: T5EncoderModel
+textenc_class_path: models/wan_2_2_models/text_encoder/t5.py
+tracker_name: tau_trainer_action
+train_epochs: 10000
+train_mode: video+action                    # 视频专家 + 动作专家全量微调（非冻结、非 LoRA）
+train_steps: 30000                          # [改] 官方 1000000（=不限制）；显式写死便于舰队监控算进度
+use_color_jitter: true
+use_deepspeed: false
+vae_class: Wan2_2_VAE_Batch
+vae_class_path: models/wan_2_2_models/vae/vae2_2.py
+vae_encoding_mode: 3dvae
+vae_path: /data/pretrained/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+val_shuffle: true
+weight_decay: 1e-5

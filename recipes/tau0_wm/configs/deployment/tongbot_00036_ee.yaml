@@ -1,0 +1,63 @@
+# τ0-WM TongBot 00036 EE 20D 真机部署。
+# 骨架来自官方 configs/deployment/tau_pretrain_rela_eef6d.yaml。
+# serve_tong_tau.py 启动时会按 --ckpt / --wan-root 再写一份 runtime yaml；
+# 这份是本机默认路径，也可直接给 TauPolicy 用。
+#
+# 不要用官方 14D xyz+quat websocket 协议对接真机客户端。
+# 真机走 recipes/tau0_wm/serve_tong_tau.py（16D 关节 + 三路 front/left/right）。
+action_dim: 20
+gripper_dim: 1
+chunk: 9
+action_chunk: 33
+img_size: [192, 256]
+action_type: "relative"
+action_space: "eef6d"
+statistics_file: /home/xk/data_Driven/recipes/tau0_wm/configs/stat_file/tongbot_00036_ee_rela.json
+norm_type: "meanstd"
+
+vae_class: Wan2_2_VAE
+vae_class_path: models/wan_2_2_models/vae/vae2_2.py
+vae_path: /data/pretrained/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+
+text_encoder:
+  checkpoint_path: /data/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+  text_len: 512
+  tokenizer_path: /data/pretrained/Wan2.2-TI2V-5B/google/umt5-xxl
+textenc_class: T5EncoderModel
+textenc_class_path: models/wan_2_2_models/text_encoder/t5.py
+
+diffusion_model:
+  config:
+    action_dim: 1024
+    action_ffn_dim: 2048
+    action_in_dim: 20
+    action_max_seq_len: 60
+    action_num_heads: 16
+    cross_attn_norm: true
+    dim: 3072
+    eps: 1.0e-06
+    ffn_dim: 14336
+    freq_dim: 256
+    in_dim: 48
+    model_type: ti2v
+    num_heads: 24
+    num_layers: 30
+    out_dim: 48
+    patch_size:
+    - 1
+    - 2
+    - 2
+    qk_norm: true
+    text_dim: 4096
+    text_len: 512
+    use_ae: true
+    window_size:
+    - -1
+    - 1
+  model_path: /home/xk/VLA/h100_ckpts/tau0wm_tongbot_00036_ee
+
+diffusion_model_class: WanModel
+diffusion_model_class_path: models/wan_2_2_models/transformers/model.py
+
+pipeline_class: WanTI2V
+pipeline_class_path: models/wan_2_2_models/pipeline/textimage2video.py

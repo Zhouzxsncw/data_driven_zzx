@@ -1,0 +1,63 @@
+run_id: 20261119_172012_pi05_pi05_mix_108_36_91_73_112_cty18_bs768_ah50_step007379_tk
+model: pi05
+task: ""
+dataset: ""
+experiment_name: pi05_mix_108_36_91_73_112_cty18_bs768_ah50_step007379_tk
+git:
+  infer_commit: 8b85a15
+  infer_branch: wkx-dev
+  infer_dirty: true
+local:
+  test_dir: /home/cigai22/data_Driven_zzx/output/inference
+  ckpt_dir: /media/cigai22/T9_3/checkpoint/mix_108_36_91_73_112_PI05_cty18_bs768_ah50_fps15_d0p2_action_cty18_step007379/pretrained_model
+  pipeline_history: /home/cigai22/data_Driven_zzx/output/pipeline_record_history.jsonl
+config:
+  fps: 15
+  n_action_steps: 50
+  action_space: null
+  control: null
+  guidance_scale: null
+  action_guidance_scale: null
+  attn_window: null
+  num_inference_steps: null
+  action_num_inference_steps: null
+  snr_shift: null
+  action_snr_shift: null
+  video_exec_step: null
+  task_prompt: With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box.
+  rtc_enabled: false
+  action_scale: 1.0
+  action_clip_abs: null
+  use_action_chunk: true
+checkpoint:
+  step: null
+  weight_path: null
+training:
+  dataset_path: null
+  learning_rate: null
+  batch_size: null
+  num_steps: null
+  cfg_prob: null
+  train_guidance_scale: null
+metrics:
+  duration_sec: 168.81713438034058
+  stop_reason: signal
+  timing:
+    frame_count: 11
+    effective_fps: 5.1
+    infer_p50_ms: 162.24
+    infer_p95_ms: 329.85
+    model_p50_ms: 153.05
+    model_p95_ms: 322.04
+    preprocess_pct: 4.1
+    model_pct: 95.9
+    postprocess_pct: 0.0
+  system:
+    load_avg_1m: 3.9
+    load_avg_5m: 3.37
+    ram_used_gb: 30.6
+    ram_total_gb: 125.1
+    ram_used_pct: 24.4
+config_hash: 3c257a8145a8
+notes: ""
+created_at: "2026-11-19T17:23:08.745930+08:00"

@@ -1,0 +1,7 @@
+# 对照：当前关节 DLS + 邻近 ψ 解析，40° 内取 FK 最好。
+mode: abort_rest
+solver: multiseed
+max_joint_step_deg: 40
+arm_angle_step_deg: 15
+dls_lambda: 0.08
+dls_iters: 12

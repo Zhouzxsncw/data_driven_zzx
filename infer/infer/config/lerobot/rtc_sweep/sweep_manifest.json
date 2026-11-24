@@ -1,0 +1,79 @@
+[
+  {
+    "id": "T1A",
+    "name": "T1A_baseline",
+    "desc": "基线：无 RTC",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T1A_baseline.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T1A_baseline"
+  },
+  {
+    "id": "T1B",
+    "name": "T1B_rtc_hardcut",
+    "desc": "RTC ON，无 blend（硬切）",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T1B_rtc_hardcut.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T1B_rtc_hardcut"
+  },
+  {
+    "id": "T1C",
+    "name": "T1C_rtc_blend",
+    "desc": "RTC ON + blending（完整配置）",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T1C_rtc_blend.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T1C_rtc_blend"
+  },
+  {
+    "id": "T2A",
+    "name": "T2A_denoise10",
+    "desc": "denoise=10, RTC+blend",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T2A_denoise10.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T2A_denoise10"
+  },
+  {
+    "id": "T2B",
+    "name": "T2B_denoise15",
+    "desc": "denoise=15, RTC+blend",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T2B_denoise15.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T2B_denoise15"
+  },
+  {
+    "id": "T2C",
+    "name": "T2C_denoise20",
+    "desc": "denoise=20, RTC+blend",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T2C_denoise20.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T2C_denoise20"
+  },
+  {
+    "id": "T2D",
+    "name": "T2D_denoise_default",
+    "desc": "denoise=null(默认), RTC+blend",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T2D_denoise_default.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T2D_denoise_default"
+  },
+  {
+    "id": "T3A",
+    "name": "T3A_linear8",
+    "desc": "blend=linear, horizon=8 (同 T1C)",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T3A_linear8.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T3A_linear8"
+  },
+  {
+    "id": "T3B",
+    "name": "T3B_exp8",
+    "desc": "blend=exp, horizon=8",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T3B_exp8.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T3B_exp8"
+  },
+  {
+    "id": "T3C",
+    "name": "T3C_linear4",
+    "desc": "blend=linear, horizon=4",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T3C_linear4.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T3C_linear4"
+  },
+  {
+    "id": "T3D",
+    "name": "T3D_linear16",
+    "desc": "blend=linear, horizon=16",
+    "config": "/home/xk/data_Driven/infer/infer/config/lerobot/rtc_sweep/T3D_linear16.yaml",
+    "output_dir": "/home/xk/data_Driven/rtc_sweep_results/task_ce_fm_T3D_linear16"
+  }
+]

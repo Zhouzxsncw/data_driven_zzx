@@ -1,0 +1,5 @@
+# 锁死镜像自带加速栈，禁止 pip 把 torch / flash-attn 换成 NVIDIA 轮子。
+torch==2.7.0
+flash-attn==2.8.2
+transformers==5.2.0
+numpy>=1.26,<2

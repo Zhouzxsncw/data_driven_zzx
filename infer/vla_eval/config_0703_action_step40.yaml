@@ -1,0 +1,323 @@
+# 0703-t1.et 评测表 + action-step_40 日志
+# 表格模板以 /home/cigai-24-3/下载/0703-t1.et 为准，勿使用日志目录内旧版 0629-t1.et
+
+table:
+  sheet_index: 0
+  preferred_sheet_names: ["推理 (2)", "推理"]
+  test_header_pattern: 'test\s*(\d+)'
+  max_test_id: 12
+  metadata_row: 4
+  column_labels:
+    sequence: ["序号"]
+    stage: ["机械臂状态"]
+    performance: ["具体表现"]
+  label_rows:
+    success: ["是否成功"]
+    remark: ["备注"]
+    reward: ["reward", "score", "得分"]
+    log_path: ["log_path", "日志路径"]
+    video_path: ["video_path", "video路径", "对应video路径"]
+  exclude_performance_patterns:
+    - 'N_ACTION_STEPS'
+    - 'NUM_INFERENCE'
+    - 'video路径'
+    - '模型路径'
+    - '提示词'
+    - 'TEXT PROMPT'
+
+log:
+  eval_log_filename: eval_log.jsonl
+  machine_flow_filename: machine_flow.jsonl
+  meta_filename: meta.json
+  sources:
+    - machine_flow
+    - eval_log
+  match:
+    strategy: task_segment_index
+  segment:
+    enabled: true
+    task_segments_filename: task_segments.jsonl
+    test_id_to_segment_index: same
+  video:
+    primary_key: cam_mid
+    patterns:
+      - "eval_videos/cam_mid.mp4"
+      - "eval_videos/*.mp4"
+
+output:
+  include_unmatched_in_remark: true
+  update_template_config: true
+  template_config_rows:
+    n_action_steps: {row: 25, col: 2}
+    num_inference_steps: {row: 26, col: 2}
+    prompt: {row: 27, col: 3}
+    paths: {row: 28, col: 2}
+
+# 规则与 config.yaml 一致（0703 表「具体表现」项）
+rules:
+  - id: almost_no_motion
+    match_performance: "10s内几乎没有动作"
+    check:
+      type: motion_range
+      stat: max
+      op: lte
+      value: 0.02
+      field: {path: left_arm_joints}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+      time_window: {from: segment_start, duration_sec: 10}
+      fail_reason: 无有效动作
+
+  - id: no_position_and_grasp_air
+    match_performance: "没有定位并抓空"
+    check:
+      type: all
+      checks:
+        - type: motion_range
+          stat: max
+          op: lte
+          value: 0.04
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+          time_window: {from: segment_start, duration_sec: 8}
+        - type: field_stat
+          stat: min
+          op: gte
+          value: 0.55
+          field: {path: gripper}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: positioning_offset
+    match_performance: "定位偏移"
+    check:
+      type: field_stat
+      stat: range
+      op: gte
+      value: 0.12
+      field:
+        path: checkpoint_input.robot_state.end_effector_pose.left_arm
+        component: 2
+        source: eval_log
+      record_filter: {source: eval_log, record_type: eval_inference_frame}
+      time_window: {from: segment_start, duration_sec: 8}
+      fail_reason: 定位异常
+
+  - id: slow_approach
+    match_performance: "缓慢靠近目标（5-10s）"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: range
+          op: gte
+          value: 0.05
+          field:
+            path: checkpoint_input.robot_state.end_effector_pose.left_arm
+            component: 2
+            source: eval_log
+          record_filter: {source: eval_log, record_type: eval_inference_frame}
+          time_window: {from: segment_start, duration_sec: 10}
+        - type: field_stat
+          stat: max
+          op: lte
+          value: 0.11
+          field:
+            path: checkpoint_input.robot_state.end_effector_pose.left_arm
+            component: 2
+            source: eval_log
+          record_filter: {source: eval_log, record_type: eval_inference_frame}
+          time_window: {from: segment_start, duration_sec: 5}
+
+  - id: fast_positioning
+    match_performance: "5s内快速准确定位"
+    check:
+      type: field_stat
+      stat: range
+      op: gte
+      value: 0.08
+      field:
+        path: checkpoint_input.robot_state.end_effector_pose.left_arm
+        component: 2
+        source: eval_log
+      record_filter: {source: eval_log, record_type: eval_inference_frame}
+      time_window: {from: segment_start, duration_sec: 5}
+
+  - id: no_grasp_action
+    match_performance: "没有抓取动作"
+    check:
+      type: field_stat
+      stat: min
+      op: gte
+      value: 0.55
+      field: {path: gripper}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: bad_grasp
+    match_performance: "抓取位置不理想,抓空"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: min
+          op: lte
+          value: 0.45
+          field: {path: gripper}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: gripper_cycle
+          mode: close
+          close_threshold: 0.45
+
+  - id: stable_grasp
+    match_performance: "稳定准确抓取"
+    check:
+      type: consecutive
+      consecutive: 3
+      op: lte
+      value: 0.4
+      field: {path: gripper}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: no_move_after_grasp
+    match_performance: "抓取后没有移动"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: min
+          op: lte
+          value: 0.45
+          field: {path: gripper}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: motion_range
+          stat: max
+          op: lte
+          value: 0.03
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+          time_window: {offset_start_sec: 5}
+
+  - id: not_above_box
+    match_performance: "未移动到盒子上方"
+    check:
+      type: field_stat
+      stat: max
+      op: lte
+      value: 0.42
+      field:
+        path: checkpoint_input.robot_state.end_effector_pose.left_arm
+        component: 2
+        source: eval_log
+      record_filter: {source: eval_log, record_type: eval_inference_frame}
+      fail_reason: 移动异常
+
+  - id: above_box
+    match_performance: "移动到盒子上方"
+    check:
+      type: field_stat
+      stat: max
+      op: gte
+      value: 0.43
+      field:
+        path: checkpoint_input.robot_state.end_effector_pose.left_arm
+        component: 2
+        source: eval_log
+      record_filter: {source: eval_log, record_type: eval_inference_frame}
+
+  - id: gripper_stuck
+    match_performance: "夹死不投放"
+    check:
+      type: field_stat
+      stat: min
+      op: lte
+      value: 0.25
+      field: {path: gripper}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+      time_window: {from: segment_end, duration_sec: 8}
+
+  - id: place_outside
+    match_performance: "投放至盒外"
+    check:
+      type: gripper_cycle
+      mode: close_then_open
+      close_threshold: 0.4
+      open_threshold: 0.65
+
+  - id: place_edge
+    match_performance: "投放至盒子边缘"
+    check:
+      type: sequence
+      steps:
+        - type: gripper_cycle
+          mode: close
+          close_threshold: 0.4
+        - type: gripper_cycle
+          mode: close_then_open
+          close_threshold: 0.4
+          open_threshold: 0.6
+
+  - id: place_center
+    match_performance: "投放至盒子中心"
+    check:
+      type: gripper_cycle
+      mode: close_then_open
+      close_threshold: 0.35
+      open_threshold: 0.7
+
+  - id: no_return
+    match_performance: "不归位"
+    check:
+      type: motion_range
+      stat: max
+      op: lte
+      value: 0.02
+      field: {path: left_arm_joints}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+      time_window: {from: segment_end, duration_sec: 8}
+      fail_reason: 归位异常
+
+  - id: return_offset
+    match_performance: "归位位置偏差"
+    check:
+      type: field_stat
+      stat: range
+      op: gte
+      value: 0.08
+      field: {path: left_arm_joints, component: 0}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+      time_window: {from: segment_end, duration_sec: 8}
+
+  - id: return_success
+    match_performance: "成功归位"
+    check:
+      type: motion_range
+      stat: max
+      op: gte
+      value: 0.04
+      field: {path: left_arm_joints}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+      time_window: {from: segment_end, duration_sec: 10}
+
+success:
+  required_performances:
+    - "稳定准确抓取"
+    - "移动到盒子上方"
+    - "投放至盒子中心"
+    - "成功归位"
+  failure_if_any:
+    - "没有定位并抓空"
+    - "10s内几乎没有动作"
+    - "夹死不投放"
+  reward_on_success: 1.0
+  special_cases:
+    - match_test_metadata: "空样本"
+      success_if_any:
+        - "10s内几乎没有动作"
+      remark: "空样本按无动作判定"
+    - match_test_metadata: "只放小马，没有盒子"
+      success_if_all:
+        - "稳定准确抓取"
+      remark: "无盒场景仅检查抓取"
+
+exclusivity:
+  enabled: true
+  group_by: stage
+  strategy: first_in_table

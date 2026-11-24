@@ -1,0 +1,4 @@
+# 江算-4 等宿主机/Pod：不要锁镜像里的 torch 2.7（4 卡机是 torch 2.9）。
+# 仍禁止把 flash-attn 换成 NVIDIA 轮子。
+transformers==5.2.0
+numpy>=1.26,<2

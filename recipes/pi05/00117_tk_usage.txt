@@ -1,0 +1,18 @@
+00117 PI0.5 inference on tk (10.151.91.152)
+Model: /home/tk/data_Driven/models/00117_PI05_js16c_best_available_valid_step001302
+Config: /home/tk/data_Driven/infer/infer/config/lerobot/pi05_00117_step001302_tk_ws.yaml
+
+cd /home/tk/data_Driven
+bash recipes/pi05/run_00117_tk.sh check
+SKIP_LOWER_MACHINE=1 PI05_SERVER_LOG=/home/tk/data_Driven/recipes/pi05/server_pi05_00117_tk.log bash recipes/pi05/run_00117_tk.sh server
+# After server reports listening, run from the desktop terminal:
+bash recipes/pi05/run_00117_tk.sh client
+
+Model service: 127.0.0.1:1297
+Server log: recipes/pi05/server_pi05_00117_tk.log
+Task: black pen -> black mesh pen holder; trash -> garbage can; floss box -> blue-and-white drawer.
+16D order: left arm (7), right arm (7), left gripper, right gripper.
+Model horizon: 50; dataset FPS: 15; training action delay: 0.2 seconds.
+Step 1302 is the lowest validation loss among retained checkpoints; historical best step 372 is unavailable.
+Existing lower-machine gripper service was observed broadcasting UDP 30016.
+Lower-machine SSH default credentials did not work. SKIP_LOWER_MACHINE=1 reuses the running service.

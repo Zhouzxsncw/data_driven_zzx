@@ -1,0 +1,448 @@
+# action-step_40 / 0629-t1.et 专用配置
+# 基于 machine_flow + eval_log + task_segments，阈值按该次真机日志与人工表校准。
+
+table:
+  sheet_index: 0
+  test_header_pattern: 'test\s*(\d+)'
+  max_test_id: 12
+  metadata_row: 4
+  column_labels:
+    sequence: ["序号"]
+    stage: ["机械臂反馈", "机械臂状态"]
+    performance: ["具体表现"]
+  label_rows:
+    success: ["是否成功"]
+    remark: ["补充情况", "备注"]
+    reward: ["reward", "score", "得分"]
+    log_path: ["log_path", "日志路径"]
+    video_path: ["video_path", "对应video路径", "video路径"]
+  exclude_performance_patterns:
+    - 'N_ACTION_STEPS'
+    - 'NUM_INFERENCE'
+    - 'video'
+    - '模型路径'
+    - '提示词'
+    - 'TEXT PROMPT'
+    - '对应video'
+
+log:
+  eval_log_filename: eval_log.jsonl
+  machine_flow_filename: machine_flow.jsonl
+  meta_filename: meta.json
+  sources:
+    - machine_flow
+    - eval_log
+  match:
+    strategy: task_segment_index
+  segment:
+    enabled: true
+    task_segments_filename: task_segments.jsonl
+    test_id_to_segment_index: same
+  video:
+    primary_key: cam_mid
+    patterns:
+      - "eval_videos/cam_mid.mp4"
+      - "eval_videos/*.mp4"
+
+rules:
+  # 无动作反馈
+  - id: long_idle
+    match_performance: "机械臂长时间（10s）几乎不移动"
+    check:
+      type: any
+      checks:
+        - type: all
+          checks:
+            - type: field_stat
+              stat: range
+              op: lte
+              value: 0.02
+              field: {path: gripper, source: machine_flow}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+              time_window: {from: segment_start, duration_sec: 10}
+            - type: motion_range
+              stat: sum
+              op: lte
+              value: 0.75
+              field: {path: left_arm_joints}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+              time_window: {from: segment_start, duration_sec: 10}
+            - type: field_stat
+              stat: min
+              op: gte
+              value: 0.95
+              field: {path: gripper, source: machine_flow}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+              time_window: {from: segment_start, duration_sec: 10}
+            - type: motion_range
+              stat: sum
+              op: lte
+              value: 1.4
+              field: {path: left_arm_joints}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: all
+          checks:
+            - type: motion_range
+              stat: sum
+              op: lte
+              value: 3.2
+              field: {path: left_arm_joints}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+            - type: field_stat
+              stat: count_lte
+              count_threshold: 0.45
+              op: gte
+              value: 40
+              field: {path: gripper, source: machine_flow}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+            - type: field_stat
+              stat: range
+              op: gte
+              value: 0.15
+              field:
+                path: checkpoint_input.robot_state.end_effector_pose.left_arm
+                component: 2
+                source: eval_log
+              record_filter: {source: eval_log, record_type: eval_inference_frame}
+
+  # 定位
+  - id: fast_approach
+    match_performance: "快速准确定位目标（3s）"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: range
+          op: gte
+          value: 0.04
+          field:
+            path: checkpoint_input.robot_state.end_effector_pose.left_arm
+            component: 2
+            source: eval_log
+          record_filter: {source: eval_log, record_type: eval_inference_frame}
+        - type: motion_range
+          stat: sum
+          op: gte
+          value: 3.5
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: motion_range
+          stat: sum
+          op: lte
+          value: 4.3
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: slow_approach
+    match_performance: "缓慢移动靠近（3-6s）"
+    check:
+      type: all
+      checks:
+        - type: motion_range
+          stat: sum
+          op: gte
+          value: 1.2
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+          time_window: {from: segment_start, duration_sec: 6}
+        - type: motion_range
+          stat: sum
+          op: lte
+          value: 3.4
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: field_stat
+          stat: range
+          op: lt
+          value: 0.04
+          field:
+            path: checkpoint_input.robot_state.end_effector_pose.left_arm
+            component: 2
+            source: eval_log
+          record_filter: {source: eval_log, record_type: eval_inference_frame}
+
+  - id: erratic_motion
+    match_performance: "无序运动偏离目标"
+    check:
+      type: all
+      checks:
+        - type: motion_range
+          stat: sum
+          op: gte
+          value: 1.8
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: motion_range
+          stat: sum
+          op: lte
+          value: 2.6
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: field_stat
+          stat: range
+          op: lte
+          value: 0.02
+          field:
+            path: checkpoint_input.robot_state.end_effector_pose.left_arm
+            component: 2
+            source: eval_log
+          record_filter: {source: eval_log, record_type: eval_inference_frame}
+        - type: field_stat
+          stat: count_lte
+          count_threshold: 0.45
+          op: gte
+          value: 20
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: field_stat
+          stat: count_lte
+          count_threshold: 0.45
+          op: lte
+          value: 35
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  # 抓取
+  - id: no_grasp
+    match_performance: "没有抓取动作"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: min
+          op: gte
+          value: 0.9
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: motion_range
+          stat: sum
+          op: gte
+          value: 1.2
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: motion_range
+          stat: sum
+          op: lte
+          value: 1.35
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: grasp_without_approach
+    match_performance: "无定位，有抓取"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: count_lte
+          count_threshold: 0.45
+          op: gte
+          value: 25
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: field_stat
+          stat: min
+          op: lte
+          value: 0.45
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: any
+          checks:
+            - type: motion_range
+              stat: sum
+              op: gte
+              value: 5.0
+              field: {path: left_arm_joints}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+            - type: all
+              checks:
+                - type: motion_range
+                  stat: sum
+                  op: gte
+                  value: 2.0
+                  field: {path: left_arm_joints}
+                  record_filter: {source: machine_flow, record_type: action_step_sent}
+                - type: field_stat
+                  stat: range
+                  op: lte
+                  value: 0.02
+                  field:
+                    path: checkpoint_input.robot_state.end_effector_pose.left_arm
+                    component: 2
+                    source: eval_log
+                  record_filter: {source: eval_log, record_type: eval_inference_frame}
+
+  - id: grasp_miss
+    match_performance: "尝试抓取但失败，抓错位置，抓空"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: count_lte
+          count_threshold: 0.45
+          op: gte
+          value: 25
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: field_stat
+          stat: min
+          op: lte
+          value: 0.45
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: field_stat
+          stat: range
+          op: gte
+          value: 0.04
+          field:
+            path: checkpoint_input.robot_state.end_effector_pose.left_arm
+            component: 2
+            source: eval_log
+          record_filter: {source: eval_log, record_type: eval_inference_frame}
+        - type: motion_range
+          stat: sum
+          op: gte
+          value: 3.55
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: motion_range
+          stat: sum
+          op: lte
+          value: 4.2
+          field: {path: left_arm_joints}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: drop_before_box
+    match_performance: "能抓到，但出现盒子前就掉落。"
+    enabled: false
+    check:
+      type: field_stat
+      stat: min
+      op: lte
+      value: 0.2
+      field: {path: gripper, source: machine_flow}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: grasp_hold_ok
+    match_performance: "抓成功，在盒子出现前没掉落。"
+    enabled: false
+    check:
+      type: consecutive
+      consecutive: 5
+      op: lte
+      value: 0.35
+      field: {path: gripper, source: machine_flow}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  # 放回
+  - id: place_success
+    match_performance: "放回成功，正确放入盒子中。"
+    enabled: false
+    check:
+      type: field_stat
+      stat: max
+      op: gte
+      value: 0.5
+      field: {path: gripper, source: machine_flow}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+      time_window: {from: segment_end, duration_sec: 5}
+
+  - id: place_bad
+    match_performance: "放回失败，放回后掉出，放入位置不理想。"
+    enabled: false
+    check:
+      type: field_stat
+      stat: min
+      op: lte
+      value: 0.3
+      field: {path: gripper, source: machine_flow}
+      record_filter: {source: machine_flow, record_type: action_step_sent}
+
+  - id: place_empty
+    match_performance: "放回失败，放空或者不放。"
+    check:
+      type: all
+      checks:
+        - type: field_stat
+          stat: count_lte
+          count_threshold: 0.45
+          op: gte
+          value: 25
+          field: {path: gripper, source: machine_flow}
+          record_filter: {source: machine_flow, record_type: action_step_sent}
+        - type: gripper_cycle
+          mode: close_then_open
+          close_threshold: 0.45
+          open_threshold: 0.6
+        - type: any
+          checks:
+            - type: motion_range
+              stat: sum
+              op: gte
+              value: 5.0
+              field: {path: left_arm_joints}
+              record_filter: {source: machine_flow, record_type: action_step_sent}
+            - type: all
+              checks:
+                - type: motion_range
+                  stat: sum
+                  op: gte
+                  value: 3.55
+                  field: {path: left_arm_joints}
+                  record_filter: {source: machine_flow, record_type: action_step_sent}
+                - type: motion_range
+                  stat: sum
+                  op: lte
+                  value: 4.05
+                  field: {path: left_arm_joints}
+                  record_filter: {source: machine_flow, record_type: action_step_sent}
+                - type: field_stat
+                  stat: range
+                  op: lte
+                  value: 0.05
+                  field:
+                    path: checkpoint_input.robot_state.end_effector_pose.left_arm
+                    component: 2
+                    source: eval_log
+                  record_filter: {source: eval_log, record_type: eval_inference_frame}
+            - type: all
+              checks:
+                - type: motion_range
+                  stat: sum
+                  op: gte
+                  value: 2.0
+                  field: {path: left_arm_joints}
+                  record_filter: {source: machine_flow, record_type: action_step_sent}
+                - type: motion_range
+                  stat: sum
+                  op: lte
+                  value: 2.6
+                  field: {path: left_arm_joints}
+                  record_filter: {source: machine_flow, record_type: action_step_sent}
+                - type: field_stat
+                  stat: range
+                  op: lte
+                  value: 0.02
+                  field:
+                    path: checkpoint_input.robot_state.end_effector_pose.left_arm
+                    component: 2
+                    source: eval_log
+                  record_filter: {source: eval_log, record_type: eval_inference_frame}
+
+success:
+  required_performances:
+    - "抓成功，在盒子出现前没掉落。"
+    - "放回成功，正确放入盒子中。"
+  failure_if_any:
+    - "机械臂长时间（10s）几乎不移动"
+    - "无定位，有抓取"
+    - "尝试抓取但失败，抓错位置，抓空"
+    - "放回失败，放空或者不放。"
+  reward_on_success: 1.0
+
+exclusivity:
+  enabled: true
+  group_by: stage
+  strategy: first_in_table
+
+output:
+  include_unmatched_in_remark: false

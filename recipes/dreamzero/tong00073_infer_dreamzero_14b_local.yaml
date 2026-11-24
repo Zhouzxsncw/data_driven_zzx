@@ -1,0 +1,84 @@
+# DreamZero-14B (Wan2.1-I2V-14B) TongBot 00073 本地推理（RTX PRO 6000 Blackwell 98G）
+# 权重: h100-103 SFT 导出的 global_step_{10000,19000,20000} 任一（recipes/dreamzero/export_dcp_model.py 导出，
+#       仅 action_head.model.* DiT/action 张量，bf16 ≈33G / 16.484B 参数；T5/CLIP/VAE 冻结，
+#       运行时从下列本地预训练文件加载）。三份张量名与形状完全一致，切换只改 --ckpt。
+# 与 5B 版 (tong00073_infer_dreamzero_5b_local.yaml) 的差异只在下标有注释的几处。
+defaults:
+  - hybrid_engines/fsdp@actor.fsdp_config
+  - model/dreamzero_14b@actor.model   # 14B DiT: dim 5120 / 40 layers / 40 heads
+  - override hydra/job_logging: stdout
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  searchpath:
+    - file://${oc.env:EMBODIED_PATH}/config/
+
+cluster:
+  num_nodes: 1
+  component_placement:
+    actor: all
+
+runner:
+  task_type: sft
+  logger:
+    log_path: "/home/xk/VLA/h100_ckpts/dreamzero_14b/infer_logs"
+    project_name: rlinf
+    experiment_name: "tong00073_infer_dreamzero_14b"
+    logger_backends: ["tensorboard"]
+  max_epochs: -1
+  max_steps: 1
+  resume_dir: null
+
+data:
+  train_data_paths: /home/xk/VLA/00073_20260818_RM_01_yj_21
+  lazy_load: True
+  num_workers: 2
+  prefetch_factor: 2
+  video_tolerance_s: 0.1
+  parquet_cache_size: 64
+  sampling_mode: multi_anchor
+  video_backend: pyav
+
+actor:
+  group_name: "ActorGroup"
+  training_backend: "fsdp"
+  micro_batch_size: 1
+  global_batch_size: 1
+  seed: 42
+
+  model:
+    model_type: "dreamzero"
+    precision: fp32
+    model_path: null
+    tokenizer_path: /home/xk/VLA/dreamzero_staging/pretrained/umt5-xxl
+    # skip_component_loading=true（model/dreamzero_14b.yaml 内置）：DiT 不读该目录，
+    # 架构全由 yaml 决定；目录只需存在即可（本地已放 Wan2.1_VAE.pth）。
+    diffusion_model_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.1-I2V-14B-480P
+    image_encoder_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.1-CLIP/models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth
+    text_encoder_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+    # 14B 用 Wan2.1 VAE（z_dim=16）；5B 用的是 Wan2.2_VAE.pth
+    vae_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.1-I2V-14B-480P/Wan2.1_VAE.pth
+    metadata_json_path: /home/xk/VLA/dreamzero_staging/metadata_00073.json
+    action_horizon: 16
+    num_action_per_block: 16
+    # 训练分辨率 176x320（三视图竖排 528x320 后 interpolate 回 176x320 进 VAE）
+    target_video_height: 176
+    target_video_width: 320
+    is_lora: False
+    embodiment_tag: "tong_dual_arm"
+    relative_action: False
+    relative_action_per_horizon: False
+    default_instruction: "Perform the manipulation task."
+    action_head_cfg:
+      config:
+        action_loss_embodiment_ids:
+        - 26
+        - 21
+        - 17
+        - 22
+        # token/帧 = (176/8/2)x(320/8/2) = 11x20 = 220；推理侧 KV 上限
+        # max_attention_size = local_attn_size(9) * 220 = 1980。必须与训练一致。
+        diffusion_model_cfg:
+          frame_seqlen: 220

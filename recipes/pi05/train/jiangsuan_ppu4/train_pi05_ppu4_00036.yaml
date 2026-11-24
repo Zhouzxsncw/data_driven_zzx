@@ -1,0 +1,55 @@
+# 江算 4 卡 π0.5（原生 PPU，无 docker）—— 对齐 js1 的 openpi-jiangsuan + train_pi05_ppu_yaml.sh。
+# 整机只训一个模型。4 卡超参对齐已验证的 00094/00073 4gpu：bs384 / 96 per card / lr 1.5e-4 / warmup 1334。
+# AH=50 对齐 js1 单卡 00089。数据集 00036：151 ep / 50440 帧 → 131 step/epoch，100 ep = 13100 step。
+# 16 卡机不要用这份；改 recipes/pi05/train/jiangsuan_ppu8/。
+# 启动：bash scripts/start_train_ppu4_00036.sh
+#   或：bash scripts/train_pi05_ppu_yaml.sh --config configs/train_pi05_ppu4_00036.yaml
+config_name: pi05_aloha
+framework: pytorch
+
+exp_name: 00036_PI05_ppu4_bs384_ah50_20260917
+project_name: openpi
+checkpoint_base_dir: /nvme2n1/outputs
+assets_base_dir: ./assets
+
+batch_size: 384
+num_epochs: 10
+seed: 42
+num_workers: 8
+log_interval: 100
+save_every_epochs: 10
+keep_period: 5000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 4
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /home/ubuntu/lerobot/CQTongBot-train-ppu/base_model/pi05_fixed
+
+model:
+  action_horizon: 50
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /nvme2n1/dataset/00036_20260804_RM_01_yj_21
+  assets:
+    assets_dir: /nvme2n1/dataset/00036_20260804_RM_01_yj_21
+    asset_id: "."
+  default_prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

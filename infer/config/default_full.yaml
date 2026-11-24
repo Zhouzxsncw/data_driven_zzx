@@ -1,0 +1,174 @@
+dataset:
+  repo_id: auto
+  name_prefix: pick_place_with_both_hands
+  root: ~/CIGAI/dataset/train
+  task: Use the left gripper to pick up toys and use the right hand to pick up bottles.
+  fps: 15
+  robot_type: tong_dual_arm
+network:
+  high_host: 192.168.1.12
+  low_host: 192.168.1.13
+  ports:
+    robot_action: 18131
+    gripper_state: 30016
+    exo_state: 18140
+    exo_command: 30026
+    hand_state: 18133
+    hand_action: 18134
+modalities:
+  state:
+    left_arm:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    right_arm:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    left_gripper:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    right_gripper:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    right_hand:
+      enabled: true
+      required: false
+      fallback: hold_last
+  action:
+    left_arm:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    right_arm:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    left_gripper:
+      enabled: true
+      required: true
+      fallback: drop_frame
+    right_gripper:
+      enabled: false
+      required: false
+      fallback: hold_last
+    right_hand:
+      enabled: true
+      required: false
+      fallback: hold_last
+  gripper_source: 0
+  gripper_value_filter:
+    enabled: true
+    # 夹爪语义：1.0=全开/未按，0.0=闭合/按下
+    open_value: 1.0
+    # 真实夹爪或外骨骼在全开附近的小波动直接吸附为 1.0
+    open_deadband: 0.08
+    # 只有持续低于该值，才认为是真的按下/闭合
+    close_threshold: 0.85
+    # 连续 2 帧低于闭合阈值就生效，避免按下延迟
+    stable_samples: 2
+    # binary: 输出只有 1.0/0.0；continuous: 输出连续值
+    output_mode: binary
+    ema_alpha: 1.0
+cameras:
+  enabled: true
+  use_host_timestamp: true
+  get_timeout_sec: 3.0
+  enable_display: true
+  depth:
+    enabled: true
+    dir_name: depth
+    format: png
+    align_to_color: true
+    feature_prefix: observation.depth
+    devices:
+    - observation.images.cam_right
+    - observation.images.cam_left
+    - observation.images.cam_mid
+  devices:
+  - key: observation.images.cam_right
+    serial: '230422273476'
+    width: 640
+    height: 480
+    fps: 30
+    save_depth: true
+    depth_width: 320
+    depth_height: 240
+    depth_fps: 30
+  - key: observation.images.cam_left
+    serial: f1420947
+    width: 640
+    height: 480
+    fps: 30
+    save_depth: true
+    depth_width: 320
+    depth_height: 240
+    depth_fps: 30
+  - key: observation.images.cam_mid
+    serial: f1480854
+    width: 640
+    height: 480
+    fps: 30
+    save_depth: true
+    depth_width: 320
+    depth_height: 240
+    depth_fps: 30
+sync:
+  max_time_diff: null
+  sync_delay: 0.05
+  buffer_size: 200
+  prefill_sec: 2.0
+  min_anchor_buffer: 5
+  cleanup_interval_frames: 15
+  cleanup_keep_sec: 1.0
+  clock_offset:
+    robot_action: 0.0
+    hand_state: 0.0
+    hand_action: 0.0
+    camera: 0.0
+    gripper_state: 0.0
+    exo_state: 0.0
+    robot_state: 0.0
+episode:
+  image_writer_processes: 0
+  image_writer_threads: 12
+  prompt_save: true
+  prompt_continue: true
+realtime_gripper_plot:
+  enabled: true
+  max_points: 3000
+  update_interval_sec: 0.0
+logging:
+  level: INFO
+  log_sync_every_n_frames: 30
+  log_file: null
+qa:
+  enabled: false
+  threshold: 0.65
+  warn_if_below_threshold: true
+  save_report: true
+  report_subdir: qa_reports
+  report_path: null
+robot_arm:
+  enabled: true
+  sdk_path: ~/RM_API2-main
+  robot_r_host: 192.168.1.17
+  robot_l_host: 192.168.1.18
+  port_r: 8080
+  port_l: 8080
+  control_hz: 30.0
+  state_hz: 30.0
+  gripper_host: 192.168.1.13
+  gripper_port: 30015
+  # Episode 开始时左右夹爪姿态初始化（经 30015，不 movej 机械臂）
+  init_grippers_on_start: true
+  gripper_initial_position: [0.7, 0.7]
+  gripper_filter:
+    enabled: true
+    open_value: 1.0
+    open_deadband: 0.06
+    change_threshold: 0.08
+    stable_samples: 2
+    ema_alpha: 1.0

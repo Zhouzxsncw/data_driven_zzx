@@ -1,0 +1,285 @@
+# 混合集 117+120+121+125（final3，444 集）：step 13740 / 68700 = 20%（bs384，trainable=action 冻结微调）
+# 提示词 = 00125 笔+书原句（114 字，逐字校验）；对应 preset task125_penbook
+# 初始位已同步切到 00125（dataset_median），因为笔+书场景的起始姿态与 00120 三任务工位差 40~70°
+# ⚠ valid_loss@13740=0.1238（best 0.0705@step1374），之后持续变差
+# 提示词 = 00126 的 meta/tasks.jsonl 原文（39 字，逐字校验）；初始位 = 同数据集的 dataset_median
+# ckpt: /media/tk/T9_7/checkpoint/rm03_117_120_121_125_PI05_cty19_ah10_cty19_step013740
+#   prompt_from_task=True / default_prompt='null'（字符串形式的空值，非可用提示词）
+#   → 推理 prompt = 00125 数据集 meta/tasks.jsonl 原文，已逐字校验
+#   delta=[7,-1,7,-1] / interleave=true / horizon 10 / 3cam front-left-right / 15fps / action_delay 0.2s
+#   ⚠ 场景是"笔 + 笔筒 + 书"，不是垃圾/牙线盒/抽屉那一套；模型只有 4% 训练进度
+#   action_horizon=10 / delta_action_dims=[7,-1,7,-1] / interleave_grippers=true
+#   target_fps=15 / action_delay_sec=0.2 / state=actions=16D [L7|Lg|R7|Rg]
+# 安全档: max_tests=1, max_duration_sec=30, replan_steps=5
+ablation:
+  enabled: false
+batch_infer:
+  action_step_parts: 5
+  action_steps:
+  - 5
+  best_action_step: null
+  feedback_score_sheet: false
+  ood_presets: ../ood_language_presets_dual_arm.yaml
+  ood_tasks_per_group: 1
+  output_dir: null
+  phase: action-step
+  remote_sync:
+    enabled: false
+    host: 10.151.43.132
+    port: 22
+    private_key_path: ~/.ssh/id_ed25519
+    remote_dir: /home/xk/CQTongBot/research/ablation/runs/real
+    username: xk
+  skip_existing: false
+  vla_auto_eval:
+    enabled: true
+    output_dirname: eval_table
+    result_table_name: eval_result.et
+    summary_name: summary.md
+  task_prompt_presets:
+  - id: task117_original
+    label: 117/120/121 三任务原句（训练主锚点，DEFAULT）
+    task_prompt: "On the white worktable, perform the following manipulation tasks: grasp the black pen and insert it into the black mesh pen holder; collect the trash and drop it into the trash can lined with a black garbage bag; pick up the floss box and place it inside the drawer of the blue-and-white storage box."
+  - id: task125_penbook
+    label: 00125 笔入筒+合书（混合集里的第二类 episode）
+    task_prompt: "First, pick up the pen and place it into the black pen holder, then close the book and straighten it on the table."
+camera_sender:
+  devices:
+  - fps: 30
+    height: 540
+    key: observation.cam_left
+    serial: f1422917
+    width: 960
+  - fps: 30
+    height: 540
+    key: observation.cam_mid
+    serial: f0263949
+    width: 960
+  # ⚠ cam_right(f1370871) 目前插在 USB2（Bus01 Port9）：L515 在 USB2 下连 depth 都起不来，
+  #   任何分辨率都报 "Couldn't resolve requests" / 5s 无帧。必须换到 USB3 口（Bus02 的 1/2/4/6/8/9）。
+  #   USB3 下该设备支持 960x540@30，故此处保持与另两路一致；换口后无需再改配置。
+  - fps: 30
+    height: 540
+    key: observation.cam_right
+    serial: f1370871
+    width: 960
+  enable_depth: false
+  enabled: true
+  get_timeout_sec: 3.0
+  jpeg_quality: 95
+  reconnect_delay_sec: 0.5
+  target_host: null
+  target_port: null
+  transport: local
+  use_host_timestamp: true
+direct_robot:
+  enable_joint:
+  - false
+  - false
+  - false
+  enabled: true
+  gripper_initial_position:
+  - 0.7
+  - 0.7
+  gripper_mode: udp
+  gripper_state_source: udp
+  # standard 的收臂姿态与 00125 采集起始位相差 46~70°（导致开局内扣）
+  # dataset_median = 用上面 dataset_root 的 episode 首帧中位姿态自动复位
+  init_pose_source: dataset_median
+  left_gripper_kwargs:
+    Device_name: /dev/ttyUSB0
+    baudrate: 4000000
+    dxl_id: 1
+    dxl_name: XM430
+    max_position: 2043
+    min_position: 1395
+  mirror_right_init_from_left: false
+  port_l: 8080
+  port_r: 8080
+  random_task_init_max_attempts: 32
+  random_task_init_pose: false
+  random_task_init_radius_m: 0.1
+  reset_move_speed: 5   # 实测 10% 时左臂偶发 rm_movej 返回 1，降到 5% 稳定
+  reset_settle_sec: 1.5
+  reset_to_init_on_group_start: true
+  reset_to_init_on_task_start: true
+  right_gripper_kwargs:
+    Device_name: /dev/ttyUSB1
+    baudrate: 4000000
+    dxl_id: 2
+    dxl_name: XM430
+    max_position: 2043
+    min_position: 1395
+  robot_l_host: 192.168.1.18
+  robot_r_host: 192.168.1.17
+  sdk_path: /home/tk/RM_API2-main/Python
+  standard_init_joint_degrees:
+  - 0
+  - 2.5
+  - 0
+  - -124.07299540554456
+  - -46.05899988493476
+  - 19.773499246250818
+  - -31.764499952176102
+  - 25.045500285435637
+  - -107.15200086897087
+  - 85.71250159295477
+  - -59.553501958324624
+  - 70.4529983075205
+  - -57.08100079953669
+  - -0.4185000044954692
+  - 24.15499900446959
+  - 107.09350029872971
+  - 66.21549950336347
+  # 100Hz 轮询时 api_bundle 平均 42ms/max 514ms，拖慢控制环（有效 FPS 仅 7.2）；50Hz 更稳
+  state_poll_hz: 50.0
+engine: native
+evaluation:
+  auto_after_each_test: true
+  enabled: true
+  eval_log_enabled: true
+  eval_log_filename: eval_log.jsonl
+  eval_log_generate_plots: true
+  eval_log_image_dir: eval_images
+  eval_log_image_format: jpg
+  eval_log_plot_dir: eval_plots
+  eval_log_plot_dpi: 150
+  eval_log_save_images: false
+  eval_log_save_videos: false
+  eval_log_video_dir: eval_videos
+  labels_file: null
+  metrics:
+  - automatic
+  report_filename: evaluation_report.json
+  save_report: true
+  sync_warn_rate_threshold: 0.3
+exo_safety:
+  collect_cam_mid_window_name: exo_collect_cam_mid
+  collect_config: /home/tk/data_Driven/infer/data_collect/config/dual_arm_gripper_2cam_tk.yaml
+  enabled: true
+  exo_command_port: 30026
+  exo_state_port: 18140
+  record_start_delay_sec: 2.0
+experiment_name: pi05_117_120_121_125_step013740_tk
+logging:
+  alerts_enabled: true
+  file_log_level: INFO
+  human_log_level: INFO
+  level: INFO
+  log_action_steps_detail: false
+  log_file: null
+  log_sync_every_n_frames: 30
+  machine_flow_enabled: true
+network:
+  camera_port: 18888
+  control_port: 30005
+  gripper_port: 30015
+  gripper_state_port: 30016
+  high_host: 192.168.1.12
+  low_host: 192.168.1.13
+  state_port: 18132
+pedal:
+  cancel: n
+  confirm: y
+  discard: delete
+  exo_safety_infer: ctrl+2
+  exo_takeover: ctrl+1
+  task_toggle: ctrl+.
+policy:
+  action_clip_abs: null
+  action_scale: 1.0
+  camera_keys:
+  - observation.cam_mid
+  - observation.cam_left
+  - observation.cam_right
+  ckpt_dir: /media/tk/T9_7/checkpoint/rm03_117_120_121_125_PI05_cty19_ah10_cty19_step013740/pretrained_model
+  # 初始位来源用数据集：从 00125 的 116 集首帧统计中位姿态（腰3+左7+右7）
+  dataset_root: /home/tk/CIGAI/RM_03_dataset/00125_20261104_rm03_yj_21
+  keep_dims:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  lingbot_connect_timeout_sec: 600.0
+  lingbot_expected_model: pi05
+  lingbot_host: 127.0.0.1
+  lingbot_port: 1297
+  n_action_steps_override: 10
+  num_inference_steps_override: null
+  openpi_action_dim: 16
+  openpi_action_horizon: 10
+  openpi_adapt_to_pi: false
+  openpi_camera_names:
+  - front
+  - left
+  - right
+  openpi_config_name: pi05_aloha
+  openpi_delta_action_dims:
+  - 7
+  - -1
+  - 7
+  - -1
+  openpi_image_size: 224
+  openpi_interleave_grippers: true
+  openpi_state_dim: 16
+  openpi_vector_norm: quantile
+  pi05_backend: websocket
+  prompt_from_subtask: false
+  rtc_config: null
+  rtc_enabled: false
+  # 00122 训练集 meta/tasks.jsonl 原文，逐字对齐（00122_20261030_rm03_dq_21, total_tasks=1）：
+  task_prompt: "First, pick up the pen and place it into the black pen holder, then close the book and straighten it on the table."
+  tasks_per_group: 1
+  type: pi05
+  use_action_chunk: true
+recording:
+  debug_plot_dpi: 160
+  debug_plot_max_dims: 16
+  enabled: true
+  generate_debug_plot: true
+  golden_capture: false
+  golden_capture_dir: null
+  golden_capture_mode: policy
+  inference_dir: /home/tk/data_Driven/models/rm03_117_120_121_125_step013740/inference
+  save_depth_videos: false
+  save_fourth_cam: true
+  save_third_cam: true
+  save_trajectory: true
+  save_videos: true
+session:
+  auto_finalize: true
+  cam_left_window_name: cam_left
+  cam_mid_window_name: cam_mid
+  cam_right_window_name: cam_right
+  fps: 15
+  max_duration_sec: 100   # 按要求延长；单任务训练 episode 11~14s，超过后模型会重复动作
+  max_tests: 1
+  pedal_task_control: true
+  prompt_continue: true
+  replan_steps: 5
+  task_mode: continuous_tasks
+  visualize_cam_left: true
+  visualize_cam_mid: true
+  visualize_cam_right: true
+  interactive_task_prompt: false
+sync:
+  buffer_size: 1000
+  clock_offset:
+    camera: 0.0
+    robot_state: 0.0
+  max_time_diff: null
+  min_anchor_buffer: 5
+  prefill_sec: 2.0
+  sync_delay: 0.05

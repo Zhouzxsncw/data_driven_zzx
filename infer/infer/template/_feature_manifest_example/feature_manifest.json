@@ -1,0 +1,588 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-07-14T10:30:24.105632+08:00",
+  "summary": {
+    "core_count": 12,
+    "secondary_count": 10,
+    "gripper_mode": "udp",
+    "gripper_state_source": "udp",
+    "camera_on": true
+  },
+  "features": [
+    {
+      "id": "engine",
+      "name": "推理引擎",
+      "group": "control",
+      "priority": "core",
+      "status": "native",
+      "value": "native",
+      "effect": "native=新引擎(SyncEngine+脚踏组)；legacy=旧缓冲对齐逻辑",
+      "config_key": "engine"
+    },
+    {
+      "id": "direct_robot",
+      "name": "机械臂连接",
+      "group": "control",
+      "priority": "core",
+      "status": "直连 RealMan SDK",
+      "value": "direct",
+      "effect": "开=上位机直连臂；关=走旧 UDP 桥收状态/发控制",
+      "config_key": "direct_robot.enabled"
+    },
+    {
+      "id": "gripper_control",
+      "name": "夹爪控制通道",
+      "group": "control",
+      "priority": "core",
+      "status": "UDP 下发 (30015)",
+      "value": "udp",
+      "effect": "udp=指令发给下位机 only_gripper；local=本机串口直接拧电机；none=关节动、夹爪不下发",
+      "config_key": "direct_robot.gripper_mode"
+    },
+    {
+      "id": "gripper_state_source",
+      "name": "夹爪观测来源（进模型的 state[14/15]）",
+      "group": "observation",
+      "priority": "core",
+      "status": "UDP 实测 (30016 Dynamixel)",
+      "value": "udp",
+      "effect": "udp=用下位机刚推上来的夹爪开口比覆盖观测（更贴近真机）；buffer=用与相机对齐的 buffer 夹爪维；若缺失或占位 0，自动用上一拍 action 夹爪（再退到初始开口），不再写死 0",
+      "config_key": "direct_robot.gripper_state_source"
+    },
+    {
+      "id": "camera_input",
+      "name": "视觉输入",
+      "group": "observation",
+      "priority": "core",
+      "status": "开",
+      "value": {
+        "enabled": true,
+        "keys_label": "auto（从 checkpoint 推断）",
+        "transport": "local"
+      },
+      "effect": "开=模型吃图像，keys=auto（从 checkpoint 推断）；关=纯 state 推理（camera_keys=[] 或缺相机）",
+      "config_key": "camera_sender.enabled / policy.camera_keys"
+    },
+    {
+      "id": "depth",
+      "name": "深度图",
+      "group": "observation",
+      "priority": "core",
+      "status": "开",
+      "value": true,
+      "effect": "开=采 depth 并可录深度视频；关=只有 RGB（多数 ACT/Pi 策略本身不用 depth）",
+      "config_key": "camera_sender.enable_depth"
+    },
+    {
+      "id": "keep_dims",
+      "name": "模型状态维 keep_dims",
+      "group": "observation",
+      "priority": "core",
+      "status": "[0, 1, 2, 3, 4, 5, 6, 14]",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        14
+      ],
+      "effect": "决定送进模型的关节/夹爪子集；改它等于换观测与动作布局",
+      "config_key": "policy.keep_dims"
+    },
+    {
+      "id": "rtc",
+      "name": "Pi0.5 RTC",
+      "group": "control",
+      "priority": "core",
+      "status": "关",
+      "value": false,
+      "effect": "开=实时动作拼接(Pi特有)；关=普通开环 chunk；ACT/DP 通常保持关",
+      "config_key": "policy.rtc_enabled"
+    },
+    {
+      "id": "use_action_chunk",
+      "name": "整段 Chunk 一次下发",
+      "group": "control",
+      "priority": "core",
+      "status": "关",
+      "value": false,
+      "effect": "开=按 chunk 批执行；关=按 n_action_steps 逐步开环（当前常用）",
+      "config_key": "policy.use_action_chunk"
+    },
+    {
+      "id": "pedal_task_control",
+      "name": "脚踏任务段",
+      "group": "session",
+      "priority": "core",
+      "status": "开",
+      "value": true,
+      "effect": "开=用 ctrl+. 切任务段，连续采多任务；关=单次 test 计时跑完即停",
+      "config_key": "session.pedal_task_control"
+    },
+    {
+      "id": "exo_safety",
+      "name": "外骨骼接管",
+      "group": "session",
+      "priority": "core",
+      "status": "开",
+      "value": true,
+      "effect": "开=ctrl+1 人控 / ctrl+2 回推理；关=无外骨骼链路",
+      "config_key": "exo_safety.enabled"
+    },
+    {
+      "id": "init_pose",
+      "name": "回初始位 / 随机初始化",
+      "group": "session",
+      "priority": "core",
+      "status": "组开始复位(dataset_median)",
+      "value": {
+        "reset_to_init_on_group_start": true,
+        "init_pose_source": "dataset_median",
+        "random_task_init_pose": false
+      },
+      "effect": "复位开=每组开始把臂回到标准/数据集位；随机开=每个任务段在圆盘内随机左臂初始位（测泛化）",
+      "config_key": "direct_robot.reset_to_init_on_group_start / random_task_init_pose"
+    },
+    {
+      "id": "save_videos",
+      "name": "录 RGB 视频",
+      "group": "recording",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→videos/；关=不落盘视频（省磁盘，不影响控制）",
+      "config_key": "recording.save_videos"
+    },
+    {
+      "id": "save_trajectory",
+      "name": "录轨迹",
+      "group": "recording",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→trajectory_data/；关=没有离线轨迹文件",
+      "config_key": "recording.save_trajectory"
+    },
+    {
+      "id": "eval_log",
+      "name": "eval_log + 对比图",
+      "group": "eval",
+      "priority": "secondary",
+      "status": "开(含对比图)",
+      "value": {
+        "eval_log": true,
+        "plots": true
+      },
+      "effect": "开→eval_log.jsonl / eval_plots/；关=事后难画指令vs反馈曲线",
+      "config_key": "evaluation.eval_log_*"
+    },
+    {
+      "id": "evaluation_report",
+      "name": "自动评估报告",
+      "group": "eval",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→evaluation_report.*；关=只有原始日志",
+      "config_key": "evaluation.enabled"
+    },
+    {
+      "id": "device_health",
+      "name": "设备健康/状态轮询计时",
+      "group": "logging",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→device_health*.json(l)，含反馈超时与 poll 耗时探针",
+      "config_key": "logging.device_health_enabled"
+    },
+    {
+      "id": "batch_score_sheet",
+      "name": "批量人工评分表",
+      "group": "batch",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开=每组生成评分 .xlsx；关=不弹表",
+      "config_key": "batch_infer.feedback_score_sheet"
+    },
+    {
+      "id": "batch_vla_auto_eval",
+      "name": "批量 VLA 自动评估",
+      "group": "batch",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→每组 eval_table/；关=不做规则打分",
+      "config_key": "batch_infer.vla_auto_eval.enabled"
+    },
+    {
+      "id": "ablation_yaml",
+      "name": "YAML 消融会话",
+      "group": "batch",
+      "priority": "secondary",
+      "status": "关",
+      "value": false,
+      "effect": "开=InferSession 按 ablation.runs 扫配置；批量真机一般保持关",
+      "config_key": "ablation.enabled"
+    },
+    {
+      "id": "interactive_task_prompt",
+      "name": "任务间改 prompt (OOD)",
+      "group": "session",
+      "priority": "secondary",
+      "status": "关",
+      "value": false,
+      "effect": "开=每任务段可改语言指令；ACT 通常关",
+      "config_key": "session.interactive_task_prompt"
+    },
+    {
+      "id": "golden_capture",
+      "name": "Golden Capture",
+      "group": "recording",
+      "priority": "secondary",
+      "status": "关",
+      "value": false,
+      "effect": "开=额外抓取对照数据；日常推理关",
+      "config_key": "recording.golden_capture"
+    }
+  ],
+  "core": [
+    {
+      "id": "engine",
+      "name": "推理引擎",
+      "group": "control",
+      "priority": "core",
+      "status": "native",
+      "value": "native",
+      "effect": "native=新引擎(SyncEngine+脚踏组)；legacy=旧缓冲对齐逻辑",
+      "config_key": "engine"
+    },
+    {
+      "id": "direct_robot",
+      "name": "机械臂连接",
+      "group": "control",
+      "priority": "core",
+      "status": "直连 RealMan SDK",
+      "value": "direct",
+      "effect": "开=上位机直连臂；关=走旧 UDP 桥收状态/发控制",
+      "config_key": "direct_robot.enabled"
+    },
+    {
+      "id": "gripper_control",
+      "name": "夹爪控制通道",
+      "group": "control",
+      "priority": "core",
+      "status": "UDP 下发 (30015)",
+      "value": "udp",
+      "effect": "udp=指令发给下位机 only_gripper；local=本机串口直接拧电机；none=关节动、夹爪不下发",
+      "config_key": "direct_robot.gripper_mode"
+    },
+    {
+      "id": "gripper_state_source",
+      "name": "夹爪观测来源（进模型的 state[14/15]）",
+      "group": "observation",
+      "priority": "core",
+      "status": "UDP 实测 (30016 Dynamixel)",
+      "value": "udp",
+      "effect": "udp=用下位机刚推上来的夹爪开口比覆盖观测（更贴近真机）；buffer=用与相机对齐的 buffer 夹爪维；若缺失或占位 0，自动用上一拍 action 夹爪（再退到初始开口），不再写死 0",
+      "config_key": "direct_robot.gripper_state_source"
+    },
+    {
+      "id": "camera_input",
+      "name": "视觉输入",
+      "group": "observation",
+      "priority": "core",
+      "status": "开",
+      "value": {
+        "enabled": true,
+        "keys_label": "auto（从 checkpoint 推断）",
+        "transport": "local"
+      },
+      "effect": "开=模型吃图像，keys=auto（从 checkpoint 推断）；关=纯 state 推理（camera_keys=[] 或缺相机）",
+      "config_key": "camera_sender.enabled / policy.camera_keys"
+    },
+    {
+      "id": "depth",
+      "name": "深度图",
+      "group": "observation",
+      "priority": "core",
+      "status": "开",
+      "value": true,
+      "effect": "开=采 depth 并可录深度视频；关=只有 RGB（多数 ACT/Pi 策略本身不用 depth）",
+      "config_key": "camera_sender.enable_depth"
+    },
+    {
+      "id": "keep_dims",
+      "name": "模型状态维 keep_dims",
+      "group": "observation",
+      "priority": "core",
+      "status": "[0, 1, 2, 3, 4, 5, 6, 14]",
+      "value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        14
+      ],
+      "effect": "决定送进模型的关节/夹爪子集；改它等于换观测与动作布局",
+      "config_key": "policy.keep_dims"
+    },
+    {
+      "id": "rtc",
+      "name": "Pi0.5 RTC",
+      "group": "control",
+      "priority": "core",
+      "status": "关",
+      "value": false,
+      "effect": "开=实时动作拼接(Pi特有)；关=普通开环 chunk；ACT/DP 通常保持关",
+      "config_key": "policy.rtc_enabled"
+    },
+    {
+      "id": "use_action_chunk",
+      "name": "整段 Chunk 一次下发",
+      "group": "control",
+      "priority": "core",
+      "status": "关",
+      "value": false,
+      "effect": "开=按 chunk 批执行；关=按 n_action_steps 逐步开环（当前常用）",
+      "config_key": "policy.use_action_chunk"
+    },
+    {
+      "id": "pedal_task_control",
+      "name": "脚踏任务段",
+      "group": "session",
+      "priority": "core",
+      "status": "开",
+      "value": true,
+      "effect": "开=用 ctrl+. 切任务段，连续采多任务；关=单次 test 计时跑完即停",
+      "config_key": "session.pedal_task_control"
+    },
+    {
+      "id": "exo_safety",
+      "name": "外骨骼接管",
+      "group": "session",
+      "priority": "core",
+      "status": "开",
+      "value": true,
+      "effect": "开=ctrl+1 人控 / ctrl+2 回推理；关=无外骨骼链路",
+      "config_key": "exo_safety.enabled"
+    },
+    {
+      "id": "init_pose",
+      "name": "回初始位 / 随机初始化",
+      "group": "session",
+      "priority": "core",
+      "status": "组开始复位(dataset_median)",
+      "value": {
+        "reset_to_init_on_group_start": true,
+        "init_pose_source": "dataset_median",
+        "random_task_init_pose": false
+      },
+      "effect": "复位开=每组开始把臂回到标准/数据集位；随机开=每个任务段在圆盘内随机左臂初始位（测泛化）",
+      "config_key": "direct_robot.reset_to_init_on_group_start / random_task_init_pose"
+    }
+  ],
+  "secondary": [
+    {
+      "id": "save_videos",
+      "name": "录 RGB 视频",
+      "group": "recording",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→videos/；关=不落盘视频（省磁盘，不影响控制）",
+      "config_key": "recording.save_videos"
+    },
+    {
+      "id": "save_trajectory",
+      "name": "录轨迹",
+      "group": "recording",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→trajectory_data/；关=没有离线轨迹文件",
+      "config_key": "recording.save_trajectory"
+    },
+    {
+      "id": "eval_log",
+      "name": "eval_log + 对比图",
+      "group": "eval",
+      "priority": "secondary",
+      "status": "开(含对比图)",
+      "value": {
+        "eval_log": true,
+        "plots": true
+      },
+      "effect": "开→eval_log.jsonl / eval_plots/；关=事后难画指令vs反馈曲线",
+      "config_key": "evaluation.eval_log_*"
+    },
+    {
+      "id": "evaluation_report",
+      "name": "自动评估报告",
+      "group": "eval",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→evaluation_report.*；关=只有原始日志",
+      "config_key": "evaluation.enabled"
+    },
+    {
+      "id": "device_health",
+      "name": "设备健康/状态轮询计时",
+      "group": "logging",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→device_health*.json(l)，含反馈超时与 poll 耗时探针",
+      "config_key": "logging.device_health_enabled"
+    },
+    {
+      "id": "batch_score_sheet",
+      "name": "批量人工评分表",
+      "group": "batch",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开=每组生成评分 .xlsx；关=不弹表",
+      "config_key": "batch_infer.feedback_score_sheet"
+    },
+    {
+      "id": "batch_vla_auto_eval",
+      "name": "批量 VLA 自动评估",
+      "group": "batch",
+      "priority": "secondary",
+      "status": "开",
+      "value": true,
+      "effect": "开→每组 eval_table/；关=不做规则打分",
+      "config_key": "batch_infer.vla_auto_eval.enabled"
+    },
+    {
+      "id": "ablation_yaml",
+      "name": "YAML 消融会话",
+      "group": "batch",
+      "priority": "secondary",
+      "status": "关",
+      "value": false,
+      "effect": "开=InferSession 按 ablation.runs 扫配置；批量真机一般保持关",
+      "config_key": "ablation.enabled"
+    },
+    {
+      "id": "interactive_task_prompt",
+      "name": "任务间改 prompt (OOD)",
+      "group": "session",
+      "priority": "secondary",
+      "status": "关",
+      "value": false,
+      "effect": "开=每任务段可改语言指令；ACT 通常关",
+      "config_key": "session.interactive_task_prompt"
+    },
+    {
+      "id": "golden_capture",
+      "name": "Golden Capture",
+      "group": "recording",
+      "priority": "secondary",
+      "status": "关",
+      "value": false,
+      "effect": "开=额外抓取对照数据；日常推理关",
+      "config_key": "recording.golden_capture"
+    }
+  ],
+  "inputs": {
+    "experiment_name": "act_left_arm_pick_place_direct",
+    "config_path": "/home/cigai-24-3/CIGAI_code/VLA/cigai-vla-leroboot/infer/config/lerobot/act_left_arm_direct.yaml",
+    "policy": {
+      "type": "act",
+      "ckpt_dir": "/path/to/checkpoints/020000/pretrained_model",
+      "task_prompt": "Use the left gripper to pick up the toy and put it into the box.",
+      "keep_dims": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        14
+      ],
+      "camera_keys": null,
+      "camera_keys_label": "auto（从 checkpoint 推断）",
+      "n_action_steps": 15,
+      "chunk_size": 50,
+      "action_scale": 1.0,
+      "action_clip_abs": null
+    },
+    "session": {
+      "fps": 15,
+      "task_mode": "continuous_tasks",
+      "tasks_per_group": 20,
+      "max_duration_sec": null
+    },
+    "cameras": {
+      "enabled": true,
+      "transport": "local",
+      "enable_depth": true,
+      "devices": [
+        {
+          "index": 0,
+          "key": null,
+          "serial": "f1480854",
+          "capture_hw": null,
+          "model_hw": null,
+          "fps": 30
+        },
+        {
+          "index": 1,
+          "key": null,
+          "serial": "f1420947",
+          "capture_hw": null,
+          "model_hw": null,
+          "fps": 30
+        }
+      ]
+    },
+    "robot": {
+      "direct_robot": true,
+      "gripper_mode": "udp",
+      "gripper_state_source": "udp",
+      "state_poll_hz": 100.0,
+      "high_host": "192.168.1.12",
+      "low_host": "192.168.1.13",
+      "gripper_control_port": 30015,
+      "gripper_state_port": 30016
+    },
+    "sync": {
+      "max_time_diff": null,
+      "sync_delay": 0.05,
+      "prefill_sec": 2.0
+    }
+  },
+  "outputs": {
+    "test_dir": null,
+    "inference_dir": "/path/to/checkpoints/020000/inference",
+    "will_write": [
+      "run.log / meta / feature_manifest",
+      "videos/",
+      "trajectory_data/",
+      "eval_log.jsonl",
+      "eval_plots/",
+      "evaluation_report.*",
+      "device_health*",
+      "machine_flow.jsonl",
+      "eval_table/",
+      "评分表.xlsx"
+    ]
+  },
+  "runtime": {
+    "n_action_steps": 15,
+    "chunk_size": 50,
+    "pedal_task_control": true,
+    "tasks_per_group": 20
+  }
+}

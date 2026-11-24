@@ -1,0 +1,52 @@
+# 仿真评测口径：每个环境前 10 个任务，每个任务 10 次，每次换场景。
+# 正式全量（LIBERO 50、RoboTwin 100、RoboCasa 50）不在这一档。
+#
+#   python3 recipes/pi05/run_sim_eval_protocol.py --sim libero
+#   python3 recipes/pi05/run_sim_eval_protocol.py --sim robotwin
+#   python3 recipes/pi05/run_sim_eval_protocol.py --sim robocasa
+#
+# 服务要先按对应 embodiment 起来。记录写到 outputs/sim_eval/<时间戳>/record.json。
+
+trials_per_task: 10
+rtc: true
+rtc_algo: exp
+rtc_max_guidance_weight: 5.0
+
+libero:
+  suite: libero_spatial
+  task_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  perturbation: libero_init_states
+  note: 第 n 次用该任务初始状态表的第 n 条，10 次互不重复。
+
+robotwin:
+  task_config: demo_randomized
+  tasks:
+    - adjust_bottle
+    - beat_block_hammer
+    - blocks_ranking_rgb
+    - blocks_ranking_size
+    - click_alarmclock
+    - click_bell
+    - dump_bin_bigbin
+    - grab_roller
+    - handover_block
+    - handover_mic
+  perturbation: demo_randomized_seed
+  note: 第 n 次 seed 加 n。背景、杂物、光照、桌高按 demo_randomized 重抽。
+
+robocasa:
+  split: target
+  robot: PandaOmron
+  tasks:
+    - OpenDrawer
+    - PickPlaceSinkToCounter
+    - TurnOnMicrowave
+    - CloseFridge
+    - TurnOnSinkFaucet
+    - NavigateKitchen
+    - OpenCabinet
+    - PickPlaceCounterToCabinet
+    - CoffeeSetupMug
+    - TurnOnElectricKettle
+  perturbation: target_kitchen_resample
+  note: 每次 reset 重新抽 target 的厨房布局和物体摆放，并记下 layout_id、style_id。

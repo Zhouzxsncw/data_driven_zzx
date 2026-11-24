@@ -1,0 +1,38 @@
+{
+    "type": "Pi0Config",
+    "name": "pi05_aloha",
+    "exp_name": "rm03_mix_00126_00127_PI05_cty18_8gpu_fullft_ah10_d0p2_losspending",
+    "policy_metadata": null,
+    "model": {
+        "action_dim": 32,
+        "action_horizon": 10,
+        "max_token_len": 200,
+        "dtype": "bfloat16",
+        "paligemma_variant": "gemma_2b",
+        "action_expert_variant": "gemma_300m",
+        "pi05": true,
+        "discrete_state_input": true,
+        "use_depth_encoder": false,
+        "depth_image_keys": [],
+        "depth_encoder_depth": 12,
+        "depth_encoder_num_heads": 12,
+        "depth_encoder_mlp_dim": null,
+        "depth_encoder_dropout": 0.0,
+        "use_tactile_encoder": false,
+        "tactile_input_shape": [
+            50,
+            32
+        ],
+        "tactile_force_dim": 6,
+        "tactile_output_dim": 64,
+        "tactile_num_layers": 6,
+        "tactile_adaptive_pool": false,
+        "tactile_target_tokens": null,
+        "use_force6d_encoder": false,
+        "force6d_hidden_dim": 32,
+        "force6d_num_layers": 2
+    },
+    "batch_size": 384,
+    "num_train_steps": 16300,
+    "save_interval": 815
+}

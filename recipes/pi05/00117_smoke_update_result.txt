@@ -1,0 +1,21 @@
+tk@10.151.91.152 / 2026-10-29
+
+Verified after collection stopped:
+- Routes to 192.168.1.13/.17/.18 use 192.168.1.12.
+- Model 1297 handshake identifies step1302; 3 finite (50,16) synthetic inference outputs.
+- Both arms: SDK read-only state, 3 successful samples each, 7 finite joint angles.
+- All 3 cameras simultaneously streaming RGB 960x540@30; 3 increasing frame numbers each.
+- Gripper 30016 and exoskeleton 18140: receive timeout. Lower machine ping works; SSH public-key authentication denied. No motion or mode commands sent.
+
+Code updated from /home/xk/data_Driven/infer with remote backups:
+/home/tk/data_Driven/backups/infer_before_update_20261029_smoke
+Preserved hardware YAML and host_env. Current local code removes the older joint-stream thread and controller-YAML overrides.
+29 existing unittest regression cases passed. Both model entries, actual client imports, inference loader and takeover collection loader passed.
+Full smoke command returns exit 2 if any required read-only hardware test is skipped/unverified; it never sends motion commands.
+Original active model service was not restarted. Start a fresh client process to use updated code.
+
+Full smoke (after collection/control has stopped):
+cd /home/tk/data_Driven
+/home/tk/anaconda3/envs/openpi-pi05-infer/bin/python recipes/pi05/smoke_00117_tk.py --idle-hardware
+
+Not verified: actuation, gripper command delivery, exoskeleton takeover, auxiliary joint-speed UDP push, takeover recording/depth.

@@ -1,0 +1,18 @@
+# 复制为同目录 host_env.sh（不进 git）。只放本机路径，不要改 YAML / Python。
+#
+# jiangsuan-16（容器 openpi_train，代码在 /workspace/openpi/data_Driven）:
+#   export PI05_PYTHON=/usr/local/bin/python
+#   export LIBERO_CONFIG_PATH=/workspace/openpi/data/libero_config
+#
+# jiangsuan-4:
+#   export PI05_LIBERO_PYTHON=/home/ubuntu/lerobot/.venv/bin/python
+#   export LIBERO_CONFIG_PATH=/nvme2n1/dataset/libero_config
+#
+# 华为 A3 16×910C / A2 8×910B（容器 pi05，代码在 /home/pi05/data_Driven）:
+#   export PI05_PYTHON=/usr/local/python3.12.13/bin/python
+#
+# gpu-node1:
+#   export PI05_PYTHON=/home/cqcigai/cigai-agilex-train-openpi/.venv/bin/python
+#   export PI05_LIBERO_CKPT=/data/openpi/ckpts/pi05_libero/pretrained_model
+#
+# 不要在这里 export PI05_EMBODIMENT。

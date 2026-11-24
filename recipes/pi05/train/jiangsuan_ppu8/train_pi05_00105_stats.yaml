@@ -1,0 +1,37 @@
+# 本机算 00105 norm_stats 用。delta 掩码必须和训练 yaml 一致 TongBot [7,7,-1,-1]。
+# 不拿这份开训（bs32 / 本机路径）。
+config_name: pi05_aloha
+framework: pytorch
+
+exp_name: 00105_stats_only
+project_name: openpi
+checkpoint_base_dir: ./checkpoints
+assets_base_dir: ./assets
+
+batch_size: 32
+num_epochs: 1
+seed: 42
+num_workers: 4
+log_interval: 100
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 1
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /home/xk/VLA/openpi/models/pi05_fixed
+
+model:
+  action_horizon: 50
+
+data:
+  repo_id: /data/wall-oss/datasets/00105_20260918_RM_01_YJ_DQ_21
+  assets:
+    assets_dir: /data/wall-oss/datasets/00105_20260918_RM_01_YJ_DQ_21
+    asset_id: "."
+  default_prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

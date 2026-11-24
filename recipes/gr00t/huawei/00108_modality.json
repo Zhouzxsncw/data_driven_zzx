@@ -1,0 +1,30 @@
+{
+    "state": {
+        "observation.state": {
+            "start": 0,
+            "end": 16
+        }
+    },
+    "action": {
+        "observation.state": {
+            "start": 0,
+            "end": 16
+        }
+    },
+    "video": {
+        "observation.images.cam_left": {
+            "original_key": "observation.images.cam_left"
+        },
+        "observation.images.cam_mid": {
+            "original_key": "observation.images.cam_mid"
+        },
+        "observation.images.cam_right": {
+            "original_key": "observation.images.cam_right"
+        }
+    },
+    "annotation": {
+        "human.task_description": {
+            "original_key": "task_index"
+        }
+    }
+}

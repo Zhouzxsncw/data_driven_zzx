@@ -1,0 +1,28 @@
+# Runtime and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.rm75-control.lock
+output/
+logs/
+pico/state/
+
+# Deployment payloads and downloaded base images
+.transfer/
+pico/pc_service/
+
+# Local editor and temporary files
+.idea/
+.vscode/
+*.swp
+*~
+infer/.~*
+
+# Large generated media and model artifacts
+*.mp4
+*.mkv
+*.pt
+*.pth
+*.safetensors
+*.ckpt

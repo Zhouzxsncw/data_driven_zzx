@@ -1,0 +1,46 @@
+data_class: CustomLeRobotDataset
+data_class_path: data/example_dataset.py
+data:
+  # TongBot 00036 的 **EE 20D** 版（joint→RM75 FK + τ0-WM 列约定 rot6d，见
+  # recipes/tau0_wm/convert_00036_ee.py）。承载机 h100-103，本机调试时把
+  # /data1/tau0wm/datasets 换成 /data/wall-oss/datasets 即可。
+  data_roots: ["/data1/tau0wm/datasets/00036_rm75_ee_tau0wm"]
+
+  # 单视图 192×256（原始 480×640 的 3:4 等比缩放），与官方 taco / 预训练 infer 配置一致。
+  # 必须能被 32 整除：Wan2.2 VAE 16× 空间压缩 × patch 2。
+  sample_size: [192, 256]
+  n_view: 3
+  # EE 数据集由 v2.1 转来，相机键是 front/left/right（不是老 joint 树的 cam_*）
+  valid_cam: ['observation.images.front', 'observation.images.left', 'observation.images.right']
+
+  fps: 15
+  chunk: 9
+  action_chunk: 33
+  # ★ 与预训练 configs/deployment/tau_pretrain_rela_eef6d.yaml 完全一致的动作语义：
+  #   relative + eef6d → dataset 内部对 18 维 [xyz+rot6d]×2 做 abs_eef_to_rela，
+  #   再插爪重排成 20 维，正好等于预训练 action_in_dim=20。
+  action_type: relative
+  action_space: eef6d
+  ignore_seek: False
+  action_key: action.ee
+  state_key: observation.state.ee
+  return_action: True
+  norm_action: True
+  filter_action: True
+
+  # 00036 是 av1 编码，统一走 pyav（与 fastwam / gigaworld 的 00036 配置一致）
+  video_backend: pyav
+
+  # TongBot 双臂：dataset 会把两臂拼成 [L xyz, L rot6d, L grip, R xyz, R rot6d, R grip] = 20D
+  dual_arm: True
+  # 落盘的 20D 布局：左 xyz(0:3) 左 rot6d(3:9) 左爪(9) 右 xyz(10:13) 右 rot6d(13:19) 右爪(19)
+  # index 取「非爪」的 18 维（abs_eef_to_rela 断言 D==18，且按 0:3/3:9/9:12/12:18 解释），
+  # 爪单独走 *_gripper_index —— 与 utils/action_space_utils.abs_eef_to_rela 的索引一一对应。
+  state_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  state_gripper_index: [9, 19]
+  action_index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  action_gripper_index: [9, 19]
+
+  # 由 scripts/compute_stat.py --action_space eef6d --action_type relative 生成；
+  # mean/std 已是重排后的 20 维顺序，长度必须等于 action_in_dim
+  statistic_files: ["configs/data/stat_file/tongbot_00036_ee_rela.json"]

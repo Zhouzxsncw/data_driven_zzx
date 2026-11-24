@@ -1,0 +1,7 @@
+# 对照：贪心 IK 后关节二次平滑。WALLOSS_IK_CONFIG 指向本文件。
+mode: abort_rest
+solver: realman
+traj_opt: smooth
+max_joint_step_deg: 40
+traj_w_smooth: 0.4
+traj_opt_iters: 8

@@ -1,0 +1,5 @@
+# 对照：Levenberg-Marquardt。WALLOSS_IK_CONFIG 指向本文件。
+mode: abort_rest
+solver: lm
+max_joint_step_deg: 40
+dls_iters: 12

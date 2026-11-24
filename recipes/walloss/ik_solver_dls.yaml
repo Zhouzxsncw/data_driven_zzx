@@ -1,0 +1,7 @@
+# 对照：DLS 数值 IK。WALLOSS_IK_CONFIG 指向本文件，或客户端 policy.ik.solver: dls
+# 默认 chunk 策略仍是 abort_rest。
+mode: abort_rest
+solver: dls
+max_joint_step_deg: 40
+dls_lambda: 0.08
+dls_iters: 12

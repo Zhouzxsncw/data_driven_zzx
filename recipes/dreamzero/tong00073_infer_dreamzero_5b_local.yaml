@@ -1,0 +1,73 @@
+defaults:
+  - hybrid_engines/fsdp@actor.fsdp_config
+  - model/dreamzero_5b@actor.model
+  - override hydra/job_logging: stdout
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  searchpath:
+    - file://${oc.env:EMBODIED_PATH}/config/
+
+cluster:
+  num_nodes: 1
+  component_placement:
+    actor: all
+
+runner:
+  task_type: sft
+  logger:
+    log_path: "/home/xk/VLA/h100_ckpts/dreamzero_5b/infer_logs"
+    project_name: rlinf
+    experiment_name: "tong00073_infer_dreamzero_5b"
+    logger_backends: ["tensorboard"]
+  max_epochs: -1
+  max_steps: 1
+  resume_dir: null
+
+data:
+  train_data_paths: /home/xk/VLA/00073_20260818_RM_01_yj_21
+  lazy_load: True
+  num_workers: 2
+  prefetch_factor: 2
+  video_tolerance_s: 0.1
+  parquet_cache_size: 64
+  sampling_mode: multi_anchor
+  video_backend: pyav
+
+actor:
+  group_name: "ActorGroup"
+  training_backend: "fsdp"
+  micro_batch_size: 1
+  global_batch_size: 1
+  seed: 42
+
+  model:
+    model_type: "dreamzero"
+    precision: fp32
+    model_path: null
+    tokenizer_path: /home/xk/VLA/dreamzero_staging/pretrained/umt5-xxl
+    diffusion_model_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.2-TI2V-5B
+    image_encoder_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.1-CLIP/models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth
+    text_encoder_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+    vae_pretrained_path: /home/xk/VLA/dreamzero_staging/pretrained/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+    metadata_json_path: /home/xk/VLA/dreamzero_staging/metadata_00073.json
+    action_horizon: 16
+    num_action_per_block: 16
+    # 176 is not divisible by VAE38 16x * DiT patch 2 (=32); latent H=11 vs unpatchify 10.
+    # 160x320 → latent 10x20, frame_seqlen=50.
+    target_video_height: 160
+    target_video_width: 320
+    is_lora: False
+    embodiment_tag: "tong_dual_arm"
+    relative_action: False
+    relative_action_per_horizon: False
+    default_instruction: "Perform the manipulation task."
+    action_head_cfg:
+      config:
+        action_loss_embodiment_ids:
+        - 26
+        - 21
+        - 17
+        - 22

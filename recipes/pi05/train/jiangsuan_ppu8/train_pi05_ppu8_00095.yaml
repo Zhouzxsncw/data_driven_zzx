@@ -1,0 +1,56 @@
+# 天翼云 cty-18 · 00095 原生 15Hz（info.json 无 source_fps）。2026-09-29 新开。
+# 200 集 / 137960 帧。num_epochs=100 时 steps/epoch = 137960//384 = 359，总步 35900。
+# 标准 8 卡：global 384、peak 1.5e-4、decay 1.5e-5、warmup 1334。启动会把 decay_steps 写成实际总步。
+# norm_stats.json 用已完成的 00095 bs32 档 017244（TongBot 掩码，R1 delta、双爪绝对）。
+# 启动：YAML=configs/train_pi05_ppu8_00095.yaml GPUS=0,1,2,3,4,5,6,7 PORT=29701 \
+#       NPROC=8 LOG=/workspace/openpi/train_00095_ppu8.log bash scripts/start_train_ppu8.sh
+config_name: pi05_aloha
+framework: pytorch
+
+exp_name: 00095_PI05_ppu8_bs384_ah50_20260929
+project_name: openpi
+checkpoint_base_dir: /workspace/outputs
+assets_base_dir: ./assets
+
+batch_size: 384
+num_epochs: 10
+seed: 42
+num_workers: 8
+log_interval: 100
+save_every_epochs: 10
+keep_period: 5000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 8
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /workspace/openpi/models/pi05_fixed
+
+model:
+  action_horizon: 50
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+  decay_steps: 35900
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /workspace/openpi/datasets/00095_202609010_RM_01_DQ_21
+  assets:
+    assets_dir: /workspace/openpi/datasets/00095_202609010_RM_01_DQ_21
+    asset_id: "."
+  default_prompt: "With both hands cooperating, put the white medicine box into the green drawer with the blue handle, put the yellow medicine box into the blue drawer with the black handle, and then close the drawers."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

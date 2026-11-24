@@ -1,0 +1,139 @@
+# DreamZero-14B (Wan2.1-I2V-14B) TongBot 00073 SFT — h100-103 8x80GB
+# 部署位置: /data1/RLinf/examples/sft/config/tong00073_sft_dreamzero_14b.yaml
+# 启动: bash /data1/dreamzero-config/launch_train_14b_h100.sh (见本仓 recipes/dreamzero/)
+# 与 5B 版 (tong00073_sft_dreamzero_5b.yaml) 的差异只在下标有注释的几处。
+defaults:
+  - hybrid_engines/fsdp@actor.fsdp_config
+  - model/dreamzero_14b@actor.model
+  - override hydra/job_logging: stdout
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+  searchpath:
+    - file://${oc.env:EMBODIED_PATH}/config/
+
+cluster:
+  num_nodes: 1
+  component_placement:
+    actor: all
+
+runner:
+  task_type: sft
+  logger:
+    log_path: "../results"
+    project_name: rlinf
+    experiment_name: "tong00073_sft_dreamzero_14b"
+    logger_backends: ["tensorboard"]
+
+  max_epochs: -1
+  # 14B 全量微调单个 ckpt ≈ 209G（dcp 分片），启动脚本 keep-last-N 剪枝。
+  # 第一轮 6000 步已跑完；续训把上限提到 20000，runner.resume_dir 指向
+  # global_step_6000，cosine 终点随 ${runner.max_steps} 自动对齐。
+  max_steps: 20000
+  val_check_interval: -1
+  save_interval: 1000
+  log_interval: 10
+  resume_dir: null
+
+data:
+  train_data_paths: /data1/dataset/00073_20260818_RM_01_yj_21
+  lazy_load: True
+  num_workers: 8
+  prefetch_factor: 8
+  video_tolerance_s: 0.1
+  parquet_cache_size: 512
+  sampling_mode: multi_anchor
+  video_backend: pyav
+
+actor:
+  group_name: "ActorGroup"
+  training_backend: "fsdp"
+  micro_batch_size: 1
+  global_batch_size: 8
+  seed: 42
+  enable_offload: False
+
+  model:
+    model_type: "dreamzero"
+    precision: fp32
+    # 关键显存开关（默认 True 会 OOM）：rlinf/models/__init__.py:get_model 里
+    # load_to_device=True 会在 FSDP 切分之前就把整个模型 .to(cuda)——14B DiT(fp32 56G)
+    # + umt5-xxl(11G) + CLIP(4.5G) + VAE 共 ≈72G，每个 rank 都来一份 → 实测单卡 79.13G OOM。
+    # 5B 能跑默认值纯是因为体量小。官方 droid_sft_wan22 / droid_sft_dreamzero_14b 都是 False。
+    load_to_device: False
+    # 保持 null：DreamZero-DROID 在 H100 上只有 632K（只有 README/config，分片没下完），
+    # 用它会覆盖 tong 的组件配置。走和 5B 一样的「从组件初始化」路径：
+    # diffusion/text/image/vae 四个 *_pretrained_path 指到 Wan2.1-14B + Wan2.2-T5 + CLIP。
+    model_path: null
+    tokenizer_path: /data1/dreamzero-pretrained/umt5-xxl
+    diffusion_model_pretrained_path: /data1/dreamzero-pretrained/Wan2.1-I2V-14B-480P
+    image_encoder_pretrained_path: /data1/dreamzero-pretrained/Wan2.1-CLIP/models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth
+    text_encoder_pretrained_path: /data1/dreamzero-pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+    vae_pretrained_path: /data1/dreamzero-pretrained/Wan2.1-I2V-14B-480P/Wan2.1_VAE.pth
+    metadata_json_path: /data1/dreamzero-config/metadata_00073.json
+    action_horizon: 16
+    num_action_per_block: 16
+    target_video_height: 176
+    target_video_width: 320
+
+    is_lora: False
+    embodiment_tag: "tong_dual_arm"
+    relative_action: False
+    relative_action_per_horizon: False
+    default_instruction: "Perform the manipulation task."
+
+    action_head_cfg:
+      config:
+        action_loss_embodiment_ids:
+        - 26
+        - 21
+        - 17
+        - 22
+        # RLinf 的 model/dreamzero_14b.yaml 里 frame_seqlen=880 对应 352x640。
+        # 本任务：三路相机 176x320 先被 concat_multiview_video 竖排成 528x320，但
+        # action head 会再把它 interpolate 回 (target_video_height, target_video_width)
+        # = 176x320（wan_flow_matching_action_tf.py L648-657）才进 VAE，所以
+        # token/帧 = (176/8/2)x(320/8/2) = 11x20 = 220（不是 3 视图相加的 660）。
+        # 该值是真的在训练里用的：teacher-forcing 路径用 self.frame_seqlen 算
+        # noisy_frames / num_image_blocks 并列校 block 布局（同文件 L884-900），
+        # 写 660 会在 step 0 直接抛 ValueError: Sequence length does not match block layout
+        # （Got noisy_frames=3, num_image_blocks=1, action_register_length=68 —— 2026-09-10 实测）；
+        # 它还决定推理侧 max_attention_size = local_attn_size(9) * 220 = 1980（正好 9 帧）。
+        diffusion_model_cfg:
+          frame_seqlen: 220
+
+  optim:
+    lr: 1.0e-5
+    adam_beta1: 0.95
+    adam_beta2: 0.999
+    adam_eps: 1.0e-08
+    weight_decay: 1.0e-5
+    clip_grad: 1.0
+    lr_scheduler: "cosine"
+    lr_warmup_steps: -1
+    lr_warmup_steps_ratio: 0.05
+    # 跟 runner.max_steps 联动（和 RLinf 官方 droid_sft_dreamzero_14b.yaml 一致），
+    # 这样启动脚本用 runner.max_steps=N 覆盖时，cosine 衰减终点自动对齐。
+    total_training_steps: ${runner.max_steps}
+  fsdp_config:
+    strategy: "fsdp2"
+    sharding_strategy: "full_shard"
+    use_orig_params: True
+    gradient_checkpointing: True
+    gradient_checkpointing_use_reentrant: True
+    limit_all_gathers: True
+    forward_prefetch: True
+    backward_prefetch: "pre"
+    reshard_after_forward: True
+    save_full_model_weights: False
+    grad_scaler:
+      enabled: False
+    mixed_precision:
+      param_dtype: bf16
+      reduce_dtype: bf16
+      buffer_dtype: bf16
+    amp_autocast:
+      enabled: False
+      precision: "bf16"

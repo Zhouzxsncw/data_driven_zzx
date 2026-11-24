@@ -1,0 +1,284 @@
+# =============================================================================
+# 原生 ALOHA Diffusion Policy (DP) 双臂+双夹爪批量推理 — 全部配置只改本文件，然后:
+#   python3 infer/cli/run_batch_infer.py --config infer/config/aloha/dp_aloha_dual_arm_gripper_direct.yaml
+# =============================================================================
+# 与 dp_aloha_left_arm_direct.yaml 的区别：
+#   - keep_dims 按 ALOHA [左8|右8] ↔ TongBot [左7|右7|左爪|右爪] 重排（见 policy.keep_dims）
+#   - aloha_model_args.arm_joint_state_names: [left, right]（须与训练该 ckpt 一致）
+#   - 双臂直连控制；gripper_mode=udp 时左右夹爪均经 30015（需下位机 only_gripper.py）
+#   - exo_safety.collect_config 指向 dual_arm_gripper_2cam.yaml
+#   - 三相机：左腕 / 胸前 / 右腕（顺序与数采 dual_arm_gripper_2cam 一致，exo 按下标映射）
+# state/action 真机维: 16（TongBot）；模型维序见 keep_dims 注释
+# 实习生/老师常用改动：
+#   - policy.ckpt_dir / dataset_repo_id / dataset_root
+#   - policy.tasks_per_group
+#   - batch_infer.vla_auto_eval         action-step 组结束后自动评估（eval_table/）
+#   - pedal / network / camera_sender / direct_robot
+#   - exo_safety.enabled=true 时 Ctrl+1 外骨骼接管、Ctrl+2 恢复推理（下位机需 run.py 非 gripper-only）
+# 说明：独立 AlohaDpAdapter（policy.type: aloha_dp）；需 robomimic + diffusers。
+#       不使用 language prompt；批量仅 action-step（无 OOD）。
+# =============================================================================
+
+experiment_name: aloha_dp_dual_arm_gripper_pick_place_direct
+
+engine: native
+
+policy:
+  type: aloha_dp
+  # 独立 ALOHA DP adapter；ckpt = {nets, ema} + dataset_stats.pkl
+  ckpt_dir: /home/cigai22/CIGAI/dataset/00063_DP_64_32_4090/dp_chunk_64_lr_4.0e-5_epochs_2000_20260813/checkpoints/000600/pretrained_model
+  tasks_per_group: 20
+  task_prompt: "Use both arms to complete the pick and place task."
+  n_action_steps_override: 15
+  # ALOHA 双臂模型维序 = [左7+左爪 | 右7+右爪]（arm_joint_state_dim=8 × names=[left,right]）
+  # TongBot 真机维序 = [左7 | 右7 | 左爪 | 右爪]
+  # keep_dims 必须做重排（与单左臂 keep_dims:[0..6,14] 同一规则），否则模型第 8 维左爪
+  # 会被写进右臂关节 0 → 右臂飞到超限/撞机。勿改成 [0..15]。
+  keep_dims: [0, 1, 2, 3, 4, 5, 6, 14, 7, 8, 9, 10, 11, 12, 13, 15]
+  # 顺序须与 camera_color_names / camera_sender.devices 一致：左腕、胸前(front)、右腕
+  camera_keys: [observation.cam_left, observation.cam_mid, observation.cam_right]
+  action_scale: 1.0
+  action_clip_abs: null
+  aloha_checkpoint_name: policy_best.ckpt
+  aloha_stats_path: null  # null = checkpoint 同目录 dataset_stats.pkl
+  aloha_model_args:       # TongBot：arm_joint_state_dim 固定为 8；须与训练该 ckpt 一致
+    policy_class: Diffusion
+    use_transformer: false
+    num_inference_timesteps: 10
+    ema_power: 0.75
+    prediction_type: sample
+    chunk_size: 64
+    qpos_norm_mode: 2
+    camera_color_names: [left, front, right]
+    obs_history_num: 1
+    arm_joint_state_names: [left, right]
+    arm_joint_state_dim: 8
+    use_arm_joint_state: 3
+    hidden_dim: 512
+    dim_feedforward: 3200
+    enc_layers: 4
+    dec_layers: 7
+    nheads: 8
+
+network:
+  high_host: "192.168.1.12"
+  low_host: "192.168.1.13"
+  state_port: 18132
+  control_port: 30005
+  gripper_port: 30015
+  gripper_state_port: 30016
+  camera_port: 18888
+
+camera_sender:
+  enabled: true
+  transport: local
+  target_host: null
+  target_port: null
+  jpeg_quality: 95
+  use_host_timestamp: true
+  get_timeout_sec: 3.0
+  reconnect_delay_sec: 0.5
+  devices:
+    # 与 data_collect/config/dual_arm_gripper_2cam.yaml 三相机 serial + 顺序一致
+    # （exo 接管共用 image_buf，按 devices 下标写入数采 feature；勿打乱顺序）
+    # 模型输入另按 policy.camera_keys / camera_color_names 重排：left → front(mid) → right
+    # 录像槽位：devices[0/1/2] → cam_left / cam_mid / cam_third（第三路即右腕）
+    - key: observation.cam_left
+      serial: "f1480854"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.cam_mid
+      serial: "f1420947"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.cam_right
+      serial: "f1380315"
+      width: 640
+      height: 480
+      fps: 30
+
+direct_robot:
+  enabled: true
+  sdk_path: ~/RM_API2-main
+  gripper_mode: udp
+  # 模型输入夹爪 state[14]/[15]：
+  #   udp    = 推理帧最新下位机 UDP 实测（30016 左右两维）
+  #   buffer = 同步缓冲池对齐值；若该维缺失/占位 0，则回退上一拍 action 夹爪，不用 0
+  gripper_state_source: udp
+  # 左右夹爪初始开口比（经 30015 同时下发）
+  gripper_initial_position: [1.0, 1.0]
+  reset_to_init_on_group_start: true
+  # dataset_median：从训练集各 episode 首帧取中位数，覆盖双臂/双夹爪
+  # ALOHA dataset_stats.pkl 不含 episode 首帧；没有 LeRobot dataset_root 时用 standard。
+  init_pose_source: standard
+  random_task_init_pose: false
+  random_task_init_radius_m: 0.10
+  random_task_init_max_attempts: 32
+  # 组确认后、以及每次 Ctrl+. 开始任务前，都回到同一套 standard_init
+  reset_to_init_on_task_start: true
+  # 右臂用训练集首帧中位数，勿再 mirror 覆盖
+  mirror_right_init_from_left: false
+  standard_init_joint_degrees:
+    - 0.0
+    - 2.5
+    - 0.0
+    # left（保持原配置）
+    - -103.0
+    - -73.67
+    - 89.0
+    - -8.31
+    - -22.0
+    - -75.5
+    - 76.4
+    # right：pick_place_dual_arm_yj_h85_20260717_142034 首帧中位数
+    # （数值来自修复前旧数采：state 为 RM 机身角→度，直接 movej，勿再 +120。
+    #  新数采 state 已是逻辑角；若从新数据推 init，需 +120 成机身角或走 dataset_init_pose）
+    - 127.83
+    - 71.07
+    - -69.22
+    - 36.5
+    - 17.23
+    - 79.71
+    - 129.44
+  reset_move_speed: 10
+  reset_settle_sec: 1.5
+  robot_r_host: "192.168.1.17"
+  robot_l_host: "192.168.1.18"
+  port_r: 8080
+  port_l: 8080
+  enable_joint: [false, false, false]
+  # gripper_mode=udp 时不连接 Dynamixel，仅 gripper_mode=local 时生效
+  left_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB0
+    dxl_id: 1
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  right_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB1
+    dxl_id: 2
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  state_poll_hz: 100.0
+
+sync:
+  max_time_diff: null
+  sync_delay: 0.05
+  buffer_size: 1000
+  prefill_sec: 2.0
+  min_anchor_buffer: 5
+  clock_offset:
+    robot_state: 0.0
+    camera: 0.0
+
+recording:
+  enabled: true
+  save_videos: true
+  save_trajectory: true
+  save_third_cam: true
+  save_fourth_cam: true
+  inference_dir: null
+  generate_debug_plot: true
+  debug_plot_max_dims: 16
+  debug_plot_dpi: 160
+  golden_capture: false
+  golden_capture_dir: null
+  golden_capture_mode: policy
+
+session:
+  fps: 15
+  max_tests: null
+  max_duration_sec: null
+  prompt_continue: true
+  auto_finalize: true
+  task_mode: continuous_tasks
+  pedal_task_control: true
+  visualize_cam_left: true
+  visualize_cam_mid: true
+  visualize_cam_right: true
+  cam_left_window_name: cam_left
+  cam_mid_window_name: cam_mid
+  cam_right_window_name: cam_right
+
+pedal:
+  task_toggle: ctrl+.
+  confirm: y
+  cancel: n
+  discard: delete
+  exo_takeover: ctrl+1      # 外骨骼接管（需 exo_safety.enabled=true）
+  exo_safety_infer: ctrl+2  # 恢复推理
+
+exo_safety:
+  enabled: true
+  exo_state_port: 18140
+  exo_command_port: 30026
+  collect_config: ../../../data_collect/config/dual_arm_gripper_2cam.yaml
+  # 选数采后延迟开录：先弹中间相机窗口不播放，到点后写帧并同步预览
+  record_start_delay_sec: 2.0
+  collect_cam_mid_window_name: exo_collect_cam_mid
+
+logging:
+  level: INFO
+  human_log_level: INFO
+  file_log_level: INFO
+  log_sync_every_n_frames: 30
+  log_action_steps_detail: false
+  machine_flow_enabled: true
+  alerts_enabled: true
+  log_file: null
+
+evaluation:
+  enabled: true
+  auto_after_each_test: true
+  save_report: true
+  report_filename: evaluation_report.json
+  metrics: [automatic]
+  labels_file: null
+  sync_warn_rate_threshold: 0.30
+  eval_log_enabled: true
+  eval_log_filename: eval_log.jsonl
+  eval_log_save_images: false
+  eval_log_image_dir: eval_images
+  eval_log_image_format: jpg
+  eval_log_save_videos: false
+  eval_log_video_dir: eval_videos
+  eval_log_generate_plots: true
+  eval_log_plot_dir: eval_plots
+  eval_log_plot_dpi: 150
+
+ablation:
+  enabled: false
+
+batch_infer:
+  action_step_parts: 5
+  phase: action-step
+  ood_tasks_per_group: 1
+  output_dir: null
+  best_action_step: null
+  skip_existing: false
+  # ACT/DP 不使用 OOD；保留字段无影响（双臂预设仅作评分表文案参考）
+  ood_presets: ../ood_language_presets_dual_arm.yaml
+  # true：每组自动生成 WPS 评分表 .et；false：跳过（无 WPS 或调试时）
+  feedback_score_sheet: false
+
+  # action-step 每组结束后自动评估（vla_eval），产物写入 <action-step_xx>/eval_table/
+  vla_auto_eval:
+    enabled: true
+    # table_template: null   # 默认 vla_eval/template/评测表.et
+    # config: null           # 默认 vla_eval/config/config_scored.yaml
+    output_dirname: eval_table
+    result_table_name: eval_result.et
+    summary_name: summary.md
+
+  remote_sync:
+    enabled: false
+    host: "10.151.43.132"
+    port: 22
+    username: "xk"
+    remote_dir: "/home/xk/CQTongBot/research/ablation/runs/real"
+    private_key_path: ~/.ssh/id_ed25519

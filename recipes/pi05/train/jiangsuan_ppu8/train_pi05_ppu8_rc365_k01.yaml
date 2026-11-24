@@ -1,0 +1,58 @@
+# 江算-16b 槽 A · 8×PPU · RoboCasa365 k=1 OpenDrawer。从 pi05_fixed 单独开，不续上一档。
+# 动作 12 维已经是控制量：底盘 4 + 模式 1 + 末端增量 3 + 朝向增量 3 + 夹爪 1。不做关节 delta。
+# 图像槽：base=左第三人称，left_wrist=右第三人称，right_wrist=腕部。三路 mask 都开。
+config_name: pi05_aloha_rgb
+framework: pytorch
+
+exp_name: rc365_PI05_k01
+project_name: openpi
+checkpoint_base_dir: /workspace/openpi/checkpoints
+assets_base_dir: /workspace/openpi/datasets/rc365_PI05_k01
+
+batch_size: 384
+num_epochs: 10
+seed: 42
+num_workers: 8
+log_interval: 50
+save_every_epochs: 1
+keep_period: 5000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 8
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /workspace/openpi/models/pi05_fixed
+
+model:
+  action_horizon: 50
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /workspace/openpi/datasets/rc365_PI05_k01
+  assets:
+    assets_dir: /workspace/openpi/datasets/rc365_PI05_k01
+    asset_id: "."
+  default_prompt: "open the drawer"
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  use_delta_joint_actions: false
+  interleave_grippers: false
+  delta_action_dims: [-12]
+  image_keys:
+    - observation.images.robot0_agentview_left
+    - observation.images.robot0_agentview_right
+    - observation.images.robot0_eye_in_hand

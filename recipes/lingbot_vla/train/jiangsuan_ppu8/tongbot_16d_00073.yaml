@@ -1,0 +1,59 @@
+# TongBot 00073 — 原生 16D
+# 数据布局: [左7 | 右7 | 左爪 | 右爪]
+# 数据集: /home/xk/VLA/00073_20260818_RM_01_yj_21 (LeRobot v2.1)
+#   observation.state / action: shape [16]
+#   cameras: observation.images.{left,front,right}
+# 任务: Using both hands, pick up the courier items from the green
+#        conveyor belt. Place the white courier bags into the left box
+#        and the brown courier boxes into the right box.
+
+states:
+  - observation.state.arm.position:
+      origin_keys:
+        - observation.state:
+            start: 0
+            end: 7
+        - observation.state:
+            start: 7
+            end: 14
+
+  - observation.state.effector.position:
+      origin_keys:
+        - observation.state:
+            start: 14
+            end: 15
+        - observation.state:
+            start: 15
+            end: 16
+
+actions:
+  - action.arm.position:
+      origin_keys:
+        - action:
+            start: 0
+            end: 7
+        - action:
+            start: 7
+            end: 14
+      subtract_state: true
+      relative_type: none
+
+  - action.effector.position:
+      origin_keys:
+        - action:
+            start: 14
+            end: 15
+        - action:
+            start: 15
+            end: 16
+      subtract_state: false
+
+images:
+  - observation.images.camera_top:
+      origin_keys: observation.images.front
+  - observation.images.camera_wrist_left:
+      origin_keys: observation.images.left
+  - observation.images.camera_wrist_right:
+      origin_keys: observation.images.right
+
+norm_stats: assets/norm_stats/tongbot_16d_00073.json

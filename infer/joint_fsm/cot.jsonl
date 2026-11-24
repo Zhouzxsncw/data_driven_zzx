@@ -1,0 +1,1 @@
+{"dataset_id": "unknown", "episode": 0, "t0": 4, "t1": 373, "n_frames": 369, "fsm_label": "grasp_left", "label": "grasp_left", "hand": "left", "task": "Use the left gripper to pick up the toy and put into the yellow box.", "subtask": "close the left gripper", "sheet": null, "sample_type": "high_level", "split": "train"}

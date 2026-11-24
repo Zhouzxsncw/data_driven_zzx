@@ -1,0 +1,63 @@
+# π0.5 相机消融 实验 4：前视 + 左腕
+# 数据 mix_108_36_91_73。验证名单 meta/episode_split.json，1333/148，seed 42。
+# 关掉的槽不进网络：零图 + image_mask false。槽位和分辨率不动。
+# 每个 epoch 存一次。最新 5 个数字检查点。早停 patience 5。
+# best 在裁剪前硬链接到 checkpoints/best。
+config_name: pi05_aloha
+framework: pytorch
+
+exp_name: mix_108_36_91_73_PI05_cam4_fl
+project_name: openpi
+checkpoint_base_dir: /workspace/outputs
+assets_base_dir: ./assets
+
+batch_size: 384
+num_epochs: 10
+seed: 42
+num_workers: 8
+log_interval: 100
+save_every_epochs: 1
+keep_period: 5000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 8
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /workspace/openpi/models/pi05_fixed
+
+model:
+  action_horizon: 50
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+  decay_steps: 124300
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /workspace/openpi/datasets/mix_108_36_91_73
+  assets:
+    assets_dir: /workspace/openpi/assets/mix_108_36_91_73_d7171_train
+    asset_id: "."
+  default_prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, -1, 7, -1]
+  interleave_grippers: true
+  val_ratio: 0.1
+  val_seed: 42
+  image_keys:
+    - observation.images.front
+    - observation.images.left
+    - observation.images.right
+  drop_cameras: [right_wrist_0_rgb]

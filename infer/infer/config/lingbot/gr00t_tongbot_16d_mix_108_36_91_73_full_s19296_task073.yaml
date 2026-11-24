@@ -1,0 +1,272 @@
+# =============================================================================
+# GR00T N1.7 × 00073 原生 16D（ZMQ → Isaac-GR00T PolicyServer）
+# 训练：
+#   train_00073_gr00t.sh
+#   Isaac-GR00T/examples/00073_tong_dual_arm/00073_config.py
+#   embodiment NEW_EMBODIMENT
+#   video: observation.images.{left,front,right}   ← 与 00036 的 cam_* 不同
+#   state/action: observation.state 16D RELATIVE NON_EEF，horizon 16
+#   language: annotation.human.task_description
+# 权重（推理机 T9）:
+#   /media/cigai22/T9_4/checkpoint/finetune_00073   （最终 10000 step）
+#
+# 启动（勿与 LingBot-VA / VLA 同时占 4090）：
+#   1) 必须带 NEW_EMBODIMENT，默认 tag 是错的:
+#        bash ~/start_gr00t_server.sh /media/cigai22/T9_4/checkpoint/finetune_00073 NEW_EMBODIMENT 5555
+#   2) infer env（不要用 gr00t_n17）:
+#        cd ~/infer
+#        python3 infer/cli/run_batch_infer.py --config infer/config/lingbot/gr00t_tongbot_16d_00073.yaml
+# =============================================================================
+# 维序：数据集 / 真机 TongBot 均为 [左7|右7|左爪|右爪]
+# keep_dims 必须是 0..15 恒等。服务端 decode_action 已把 relative 还原成绝对关节。
+# =============================================================================
+
+experiment_name: gr00t_n17_mix_108_36_91_73_full_s19296_task073
+
+engine: native
+
+policy:
+  type: gr00t
+  gr00t_host: "127.0.0.1"
+  gr00t_port: 5556
+  # 首次推理含编译，可到数分钟
+  gr00t_timeout_ms: 300000
+  gr00t_state_key: observation.state
+  gr00t_action_key: observation.state
+  gr00t_language_key: annotation.human.task_description
+  gr00t_video_keys:
+    - observation.images.left
+    - observation.images.front
+    - observation.images.right
+  # 真机 cam_left/mid/right → 训练 left/front/right
+  gr00t_image_key_map:
+    observation.cam_left: observation.images.left
+    observation.cam_mid: observation.images.front
+    observation.cam_right: observation.images.right
+  # ZMQ 模式下权重在服务端；此处仅作记录/占位
+  ckpt_dir: /media/xk/T9_4/checkpoint/finetune_mix_108_36_91_73_full_step019296
+  tasks_per_group: 12
+  task_prompt: "Using both hands, pick up the courier items from the green conveyor belt. Place the white courier bags into the left box and the brown courier boxes into the right box."
+  # 模型预测 16 步；真机默认执行前 8 步再重规划（与 NVIDIA SO100 eval 一致）
+  n_action_steps_override: 8
+  use_action_chunk: true
+  keep_dims: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  camera_keys: [observation.cam_left, observation.cam_mid, observation.cam_right]
+  rtc_enabled: false   # 可选项；true 且服务端 rtc_capable 才走 RTC
+  async_blending: false   # 可选项；true 时 leftover 与新 chunk 重叠融合
+  action_scale: 1.0
+  action_clip_abs: null
+
+network:
+  high_host: "192.168.1.14"  # 本机网卡（.12 是 cigai20 的地址，本机绑不上会 errno 99）
+  low_host: "192.168.1.13"
+  state_port: 18132
+  control_port: 30005
+  gripper_port: 30015
+  gripper_state_port: 30016
+  camera_port: 18888
+
+camera_sender:
+  enabled: true
+  transport: local
+  target_host: null
+  target_port: null
+  jpeg_quality: 95
+  use_host_timestamp: true
+  get_timeout_sec: 3.0
+  reconnect_delay_sec: 0.5
+  devices:
+    # 真机 serial 不变；00073 训练 key 是 left/front/right（见 gr00t_image_key_map）
+    # left=f1480854  front/mid=f1420947  right=f1380315
+    - key: observation.cam_left
+      serial: "f1480854"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.cam_mid
+      serial: "f1420947"
+      width: 640
+      height: 480
+      fps: 30
+    - key: observation.cam_right
+      serial: "f1380315"
+      width: 640
+      height: 480
+      fps: 30
+
+direct_robot:
+  enabled: true
+  sdk_path: ~/RM_API
+  gripper_mode: udp
+  gripper_state_source: udp
+  gripper_initial_position: [1.0, 1.0]
+  reset_to_init_on_group_start: true
+  init_pose_source: standard
+  random_task_init_pose: false
+  random_task_init_radius_m: 0.10
+  random_task_init_max_attempts: 32
+  reset_to_init_on_task_start: true
+  mirror_right_init_from_left: false
+  # 00073 前 30 条 episode 首帧中位数（腰 3 用实验室标准 0/2.5/0，左右臂来自数据集）
+  standard_init_joint_degrees:
+    - 0.0
+    - 2.5
+    - 0.0
+    - -119.17
+    - -65.25
+    - -4.11
+    - -26.76
+    - 77.78
+    - -102.08
+    - 52.15
+    - 117.27
+    - 56.41
+    - 24.65
+    - 35.57
+    - -110.11
+    - 104.5
+    - 204.72
+  reset_move_speed: 10
+  reset_settle_sec: 1.5
+  robot_r_host: "192.168.1.17"
+  robot_l_host: "192.168.1.18"
+  port_r: 8080
+  port_l: 8080
+  enable_joint: [false, false, false]
+  left_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB0
+    dxl_id: 1
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  right_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB1
+    dxl_id: 2
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  state_poll_hz: 100.0
+
+sync:
+  max_time_diff: null
+  sync_delay: 0.05
+  buffer_size: 1000
+  prefill_sec: 3.0
+  min_anchor_buffer: 2
+  clock_offset:
+    robot_state: 0.0
+    camera: 0.0
+
+recording:
+  enabled: true
+  inference_dir: /media/xk/T9_4/checkpoint/finetune_mix_108_36_91_73_full_step019296/inference
+  save_depth_videos: false
+  save_videos: true
+  save_trajectory: true
+  save_third_cam: false
+  save_fourth_cam: false
+  generate_debug_plot: true
+  debug_plot_max_dims: 16
+  debug_plot_dpi: 160
+  golden_capture: false
+  golden_capture_dir: null
+  golden_capture_mode: policy
+
+session:
+  fps: 15
+  replan_steps: 8
+  max_tests: null
+  max_duration_sec: null
+  prompt_continue: true
+  auto_finalize: true
+  task_mode: continuous_tasks
+  pedal_task_control: true
+  visualize_cam_left: true
+  visualize_cam_mid: true
+  visualize_cam_right: true
+  cam_left_window_name: cam_left
+  cam_mid_window_name: cam_mid
+  cam_right_window_name: cam_right
+
+pedal:
+  task_toggle: ctrl+.
+  confirm: y
+  cancel: n
+  discard: ""  # 关闭：不绑定任何键 → _handle_pedal_delete_task 不触发
+  exo_takeover: ctrl+1
+  exo_safety_infer: ctrl+2
+
+exo_safety:
+  enabled: true
+  exo_state_port: 18140
+  exo_command_port: 30026
+  collect_config: ../../../data_collect/config/dual_arm_gripper_2cam.yaml
+  record_start_delay_sec: 2.0
+  collect_cam_mid_window_name: exo_collect_cam_mid
+  align_enabled: true
+  align_mode: auto
+  align_max_joint_err_deg: 12.0
+  align_rms_joint_err_deg: 8.0
+  align_log_every_sec: 1.0
+  align_drive_max_step_deg: 2.0
+  align_target_send_hz: 50.0
+
+logging:
+  level: INFO
+  human_log_level: INFO
+  file_log_level: INFO
+  log_sync_every_n_frames: 30
+  log_action_steps_detail: false
+  machine_flow_enabled: true
+  alerts_enabled: true
+  device_health_enabled: true
+  device_health_live_status_ui: true
+  device_health_pause_on_anomaly: true
+  device_health_pause_require_confirm: true
+  log_file: null
+
+evaluation:
+  enabled: true
+  auto_after_each_test: true
+  save_report: true
+  report_filename: evaluation_report.json
+  metrics: [automatic]
+  labels_file: null
+  sync_warn_rate_threshold: 0.30
+  eval_log_enabled: true
+  eval_log_filename: eval_log.jsonl
+  eval_log_save_images: false
+  eval_log_image_dir: eval_images
+  eval_log_image_format: jpg
+  eval_log_save_videos: false
+  eval_log_video_dir: eval_videos
+  eval_log_generate_plots: true
+  eval_log_plot_dir: eval_plots
+  eval_log_plot_dpi: 150
+
+ablation:
+  enabled: false
+
+batch_infer:
+  action_step_parts: 5
+  phase: action-step
+  ood_tasks_per_group: 1
+  output_dir: null
+  best_action_step: null
+  skip_existing: false
+  ood_presets: ../ood_language_presets.yaml
+  feedback_score_sheet: false
+  vla_auto_eval:
+    enabled: true
+    output_dirname: eval_table
+    result_table_name: eval_result.et
+    summary_name: summary.md
+  remote_sync:
+    enabled: false
+    host: "10.151.43.132"
+    port: 22
+    username: "xk"
+    remote_dir: "/home/xk/CQTongBot/research/ablation/runs/real"
+    private_key_path: ~/.ssh/id_ed25519

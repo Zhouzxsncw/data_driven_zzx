@@ -1,0 +1,6 @@
+# VLA 自动评估依赖
+# 安装: pip install -r vla_eval/requirements.txt
+PyYAML>=6.0
+xlrd==1.2.0
+xlutils
+xlwt

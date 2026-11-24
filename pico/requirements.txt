@@ -1,0 +1,2 @@
+xrobotoolkit-sdk==1.1.0
+pyzmq==27.2.0

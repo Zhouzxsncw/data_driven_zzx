@@ -1,0 +1,67 @@
+# =============================================================================
+# 本机环境配置（供 lerobot/pi05_left_arm.yaml 等非 direct 配置引用）
+# =============================================================================
+# 批量推理 run_batch_infer.py 默认用 lerobot/pi05_left_arm_direct.yaml；
+# ACT 用 lerobot/act_left_arm_direct.yaml（--config 指定）。二者均不引用本文件。
+# 若主配置含 `local_env: ../local_env.yaml`（相对实验 YAML），本文件会覆盖同名字段。
+
+network:
+  # 运行 infer/cli/run_infer.py 的上位机 IP；仅 TCP 相机路径会用 high_host:camera_port。
+  high_host: "192.168.1.12"
+  # UDP 模式下的控制机/下位机 IP；direct_robot.enabled=true 时不用于控制。
+  low_host: "192.168.1.13"
+  state_port: 18132
+  control_port: 30005
+  gripper_port: 30015
+  camera_port: 18888
+
+camera_sender:
+  # enabled 由具体实验配置决定；这里仅放本机相机参数。
+  # direct 配置默认 transport: local，即推理进程本地直读 RealSense，不走 TCP。
+  target_host: null   # null 表示使用 network.high_host
+  target_port: null   # null 表示使用 network.camera_port
+  jpeg_quality: 95
+  use_host_timestamp: true
+  get_timeout_sec: 3.0
+  reconnect_delay_sec: 0.5
+  devices:
+    # devices[0]=observation.cam_left（左腕）, devices[1]=observation.cam_mid（胸前）
+    # width/height 由 checkpoint 自动填充，此处只需 serial
+    - serial: "f1480854"
+      fps: 30
+    - serial: "f1420947"
+      fps: 30
+
+direct_robot:
+  # 不建议在本机环境文件里改 enabled；由 lerobot/pi05_left_arm.yaml / pi05_left_arm_direct.yaml 决定。
+  # RealMan SDK 路径。可填 RM_API2 仓库根目录，或包含 Robotic_Arm/ 的 Python SDK 目录。
+  # 例：~/RM_API2
+  sdk_path: ~/RM_API2-main
+  # udp 使用原来的夹爪 UDP 接收端；local 才会在本机打开 dynamixel 串口。
+  gripper_mode: udp
+  # 旧下位机脚本启动后会设为 [0.7, 0.7]；UDP 模式下上位机用它初始化夹爪状态缓存。
+  gripper_initial_position: [0.7, 0.7]
+  robot_r_host: "192.168.1.17"
+  robot_l_host: "192.168.1.18"
+  port_r: 8080
+  port_l: 8080
+  enable_joint: [false, false, false]
+  left_gripper_kwargs:
+    dxl_name: XM430
+    Device_name: /dev/ttyUSB0
+    dxl_id: 1
+    baudrate: 4000000
+    min_position: 1395
+    max_position: 2043
+  right_gripper_kwargs: null
+  state_poll_hz: 100.0
+
+# batch_infer:
+#   vla_auto_eval:
+#     enabled: true
+#   remote_sync:
+#     enabled: true
+#     host: "10.151.43.132"
+#     username: "xk"
+#     remote_dir: "/home/xk/CQTongBot/research/ablation/runs/real"
+#     private_key_path: ~/.ssh/id_rsa

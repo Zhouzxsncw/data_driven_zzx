@@ -1,0 +1,303 @@
+{
+  "time": "2026-10-29T15:14:26+0800",
+  "config": "/home/tk/data_Driven/infer/infer/config/lerobot/pi05_00117_compare_step001302_tk_ws.yaml",
+  "checks": {
+    "active_hardware_processes": {
+      "status": "IDLE",
+      "processes": []
+    },
+    "route_192.168.1.17": {
+      "status": "PASS",
+      "evidence": "192.168.1.17 dev enp128s31f6 src 192.168.1.12 uid 1000 \n    cache"
+    },
+    "route_192.168.1.18": {
+      "status": "PASS",
+      "evidence": "192.168.1.18 dev enp128s31f6 src 192.168.1.12 uid 1000 \n    cache"
+    },
+    "route_192.168.1.13": {
+      "status": "PASS",
+      "evidence": "192.168.1.13 dev enp128s31f6 src 192.168.1.12 uid 1000 \n    cache"
+    },
+    "model_tcp": {
+      "status": "PASS",
+      "host": "127.0.0.1",
+      "port": 1297,
+      "limitation": "TCP connection only"
+    },
+    "right_arm_tcp": {
+      "status": "PASS",
+      "host": "192.168.1.17",
+      "port": 8080,
+      "limitation": "TCP connection only"
+    },
+    "left_arm_tcp": {
+      "status": "PASS",
+      "host": "192.168.1.18",
+      "port": 8080,
+      "limitation": "TCP connection only"
+    },
+    "camera_enumeration": {
+      "status": "PASS",
+      "expected": [
+        "f1422917",
+        "f0263949",
+        "f1370871"
+      ],
+      "detected": [
+        "f1370871",
+        "f0263949",
+        "f1422917"
+      ]
+    },
+    "model_websocket": {
+      "status": "PASS",
+      "evidence": "[handshake] {'model': 'pi05', 'ckpt': '/home/tk/data_Driven/models/00117_PI05_js16c_best_available_valid_step001302/pretrained_model', 'embodiment': 'tongbot', 'image_layout': 'aloha3', 'action_horizon': 50, 'action_dim': 16, 'state_dim': 16, 'rtc_capable': True, 'config_name': 'pi05_aloha', 'architecture': {'family': 'pi05', 'backend': 'pytorch', 'embodiment': 'tongbot', 'config_name': 'pi05_aloha', 'action_dim': 16, 'state_dim': 16, 'action_horizon': 50, 'rtc_capable': True, 'vector_norm': 'quantile', 'paligemma_variant': 'gemma_2b', 'action_expert_variant': 'gemma_300m', 'pi05': True, 'lora': False}}\n[infer #0] actions=(50, 16) dtype=float32 range=[-0.8135, 0.9685] rtc_used=False server_ms=160\n[infer #1] actions=(50, 16) dtype=float32 range=[-0.8845, 0.9678] rtc_used=False server_ms=142\n[infer #2] actions=(50, 16) dtype=float32 range=[-0.3473, 0.9754] rtc_used=False server_ms=147\nPASS: PI0.5 websocket 握手+推理验证通过\n"
+    },
+    "right_arm_sdk": {
+      "status": "PASS",
+      "samples": [
+        {
+          "joint": [
+            -56.50600051879883,
+            69.49600219726562,
+            -59.645999908447266,
+            1.3650000095367432,
+            18.90399932861328,
+            101.54499816894531,
+            57.61199951171875
+          ],
+          "pose": [
+            0.156884,
+            -0.430433,
+            0.277088,
+            -2.928,
+            0.662,
+            1.003
+          ],
+          "err": {
+            "err_len": 1,
+            "err": [
+              "0"
+            ]
+          }
+        },
+        {
+          "joint": [
+            -56.50600051879883,
+            69.49600219726562,
+            -59.645999908447266,
+            1.3630000352859497,
+            18.90399932861328,
+            101.54499816894531,
+            57.61199951171875
+          ],
+          "pose": [
+            0.156889,
+            -0.430433,
+            0.277091,
+            -2.928,
+            0.662,
+            1.003
+          ],
+          "err": {
+            "err_len": 1,
+            "err": [
+              "0"
+            ]
+          }
+        },
+        {
+          "joint": [
+            -56.505001068115234,
+            69.4990005493164,
+            -59.64699935913086,
+            1.3630000352859497,
+            18.90399932861328,
+            101.5459976196289,
+            57.612998962402344
+          ],
+          "pose": [
+            0.156896,
+            -0.430428,
+            0.277072,
+            -2.928,
+            0.662,
+            1.003
+          ],
+          "err": {
+            "err_len": 1,
+            "err": [
+              "0"
+            ]
+          }
+        }
+      ],
+      "limitation": "Read-only; motion untested"
+    },
+    "left_arm_sdk": {
+      "status": "PASS",
+      "samples": [
+        {
+          "joint": [
+            -128.7480010986328,
+            -54.5890007019043,
+            38.15599822998047,
+            -32.529998779296875,
+            7.8379998207092285,
+            -92.83100128173828,
+            91.62100219726562
+          ],
+          "pose": [
+            0.107535,
+            0.401555,
+            0.293083,
+            -3.029,
+            0.665,
+            -0.255
+          ],
+          "err": {
+            "err_len": 1,
+            "err": [
+              "0"
+            ]
+          }
+        },
+        {
+          "joint": [
+            -128.7469940185547,
+            -54.590999603271484,
+            38.15599822998047,
+            -32.52899932861328,
+            7.840000152587891,
+            -92.83300018310547,
+            91.62100219726562
+          ],
+          "pose": [
+            0.107525,
+            0.401557,
+            0.29308,
+            -3.029,
+            0.665,
+            -0.255
+          ],
+          "err": {
+            "err_len": 1,
+            "err": [
+              "0"
+            ]
+          }
+        },
+        {
+          "joint": [
+            -128.7469940185547,
+            -54.590999603271484,
+            38.15800094604492,
+            -32.529998779296875,
+            7.840000152587891,
+            -92.83100128173828,
+            91.62300109863281
+          ],
+          "pose": [
+            0.107518,
+            0.40156,
+            0.293079,
+            -3.029,
+            0.665,
+            -0.255
+          ],
+          "err": {
+            "err_len": 1,
+            "err": [
+              "0"
+            ]
+          }
+        }
+      ],
+      "limitation": "Read-only; motion untested"
+    },
+    "camera_frames_observation.cam_left": {
+      "status": "PASS",
+      "serial": "f1422917",
+      "frames": [
+        {
+          "number": 10,
+          "timestamp_ms": 1997047.47,
+          "width": 960,
+          "height": 540
+        },
+        {
+          "number": 11,
+          "timestamp_ms": 1997080.6430000002,
+          "width": 960,
+          "height": 540
+        },
+        {
+          "number": 12,
+          "timestamp_ms": 1997113.815,
+          "width": 960,
+          "height": 540
+        }
+      ]
+    },
+    "camera_frames_observation.cam_mid": {
+      "status": "PASS",
+      "serial": "f0263949",
+      "frames": [
+        {
+          "number": 3,
+          "timestamp_ms": 2592145.04,
+          "width": 960,
+          "height": 540
+        },
+        {
+          "number": 4,
+          "timestamp_ms": 2592178.212,
+          "width": 960,
+          "height": 540
+        },
+        {
+          "number": 5,
+          "timestamp_ms": 2592211.3850000002,
+          "width": 960,
+          "height": 540
+        }
+      ]
+    },
+    "camera_frames_observation.cam_right": {
+      "status": "PASS",
+      "serial": "f1370871",
+      "frames": [
+        {
+          "number": 2,
+          "timestamp_ms": 2588785.971,
+          "width": 960,
+          "height": 540
+        },
+        {
+          "number": 3,
+          "timestamp_ms": 2588819.144,
+          "width": 960,
+          "height": 540
+        },
+        {
+          "number": 4,
+          "timestamp_ms": 2588852.316,
+          "width": 960,
+          "height": 540
+        }
+      ]
+    },
+    "gripper_feedback": {
+      "status": "UNVERIFIED",
+      "error": "timed out"
+    },
+    "exo_feedback": {
+      "status": "UNVERIFIED",
+      "error": "timed out"
+    },
+    "actuation": {
+      "status": "UNTESTED",
+      "reason": "No robot, gripper, or exoskeleton command is sent by this script"
+    }
+  }
+}

@@ -1,0 +1,152 @@
+{
+    "_meta": {
+        "saved_at": "2026-11-11T15:31:57",
+        "config_file": "/workspace/openpi/outputs/cty18_mix_00126_00127_20261110/runtime/train.yaml",
+        "config_basename": "train.yaml",
+        "note": "Resolved effective TrainConfig after YAML overrides on the named preset.",
+        "prompt": {
+            "prompt_from_task": true,
+            "prompt_from_subtask": false,
+            "repo_id": "/workspace/openpi/datasets/00126_00127_20261109_rm03_merged",
+            "subtask_sidecar": {
+                "sidecar": null,
+                "annotated_episodes": 0,
+                "total_episodes": 343,
+                "spans": 0
+            }
+        },
+        "trainable": {
+            "trainable_modules": "all",
+            "stage2_trainable_modules": null,
+            "stage2_start_epoch": null,
+            "stage2_start_step": null
+        }
+    },
+    "params": {
+        "name": "pi05_aloha",
+        "project_name": "openpi",
+        "exp_name": "rm03_mix_00126_00127_PI05_cty18_8gpu_fullft_ah10_d0p2_losspending",
+        "model": {
+            "action_dim": 32,
+            "action_horizon": 10,
+            "max_token_len": 200,
+            "dtype": "bfloat16",
+            "paligemma_variant": "gemma_2b",
+            "action_expert_variant": "gemma_300m",
+            "pi05": true,
+            "discrete_state_input": true,
+            "use_depth_encoder": false,
+            "depth_image_keys": [],
+            "depth_encoder_depth": 12,
+            "depth_encoder_num_heads": 12,
+            "depth_encoder_mlp_dim": null,
+            "depth_encoder_dropout": 0.0,
+            "use_tactile_encoder": false,
+            "tactile_input_shape": [
+                50,
+                32
+            ],
+            "tactile_force_dim": 6,
+            "tactile_output_dim": 64,
+            "tactile_num_layers": 6,
+            "tactile_adaptive_pool": false,
+            "tactile_target_tokens": null,
+            "use_force6d_encoder": false,
+            "force6d_hidden_dim": 32,
+            "force6d_num_layers": 2
+        },
+        "weight_loader": {
+            "params_path": "gs://openpi-assets/checkpoints/pi05_base/params"
+        },
+        "pytorch_weight_path": "/workspace/openpi/models/pi05_fixed",
+        "pytorch_training_precision": "bfloat16",
+        "lr_schedule": {
+            "warmup_steps": 250,
+            "peak_lr": 0.0001,
+            "decay_steps": 16300,
+            "decay_lr": 1e-05
+        },
+        "optimizer": {
+            "b1": 0.9,
+            "b2": 0.95,
+            "eps": 1e-08,
+            "weight_decay": 1e-10,
+            "clip_gradient_norm": 1.0
+        },
+        "ema_decay": 0.99,
+        "freeze_filter": "Nothing()",
+        "data": {
+            "repo_id": "/workspace/openpi/datasets/00126_00127_20261109_rm03_merged",
+            "assets": {
+                "assets_dir": "/workspace/openpi/datasets/00126_00127_20261109_rm03_merged/assets",
+                "asset_id": "."
+            },
+            "base_config": null,
+            "use_delta_joint_actions": true,
+            "default_prompt": "null",
+            "prompt_from_task": true,
+            "prompt_from_subtask": false,
+            "adapt_to_pi": false,
+            "delta_action_dims": [
+                7,
+                -1,
+                7,
+                -1
+            ],
+            "interleave_grippers": true,
+            "image_keys": [
+                "observation.images.front",
+                "observation.images.left",
+                "observation.images.right"
+            ],
+            "drop_cameras": [],
+            "frame_stride": 1,
+            "target_fps": 15,
+            "action_delay_sec": 0.2,
+            "val_ratio": 0.1,
+            "val_seed": 42,
+            "repack_transforms": {
+                "inputs": [
+                    {
+                        "structure": {
+                            "images": {
+                                "base_0_rgb": "observation.images.front",
+                                "left_wrist_0_rgb": "observation.images.left",
+                                "right_wrist_0_rgb": "observation.images.right"
+                            },
+                            "state": "observation.state",
+                            "actions": "action"
+                        }
+                    }
+                ],
+                "outputs": []
+            },
+            "action_sequence_keys": [
+                "action"
+            ]
+        },
+        "assets_base_dir": "/workspace/openpi/datasets/00126_00127_20261109_rm03_merged/assets",
+        "checkpoint_base_dir": "/workspace/openpi/outputs",
+        "seed": 42,
+        "batch_size": 384,
+        "num_workers": 0,
+        "num_train_steps": 16300,
+        "num_epochs": 100,
+        "save_every_epochs": 5,
+        "save_full_every_epochs": null,
+        "log_interval": 20,
+        "save_interval": 815,
+        "save_full_interval": null,
+        "keep_period": 5000,
+        "overwrite": false,
+        "resume": false,
+        "wandb_enabled": false,
+        "policy_metadata": null,
+        "fsdp_devices": 8,
+        "trainable_modules": "all",
+        "stage2_trainable_modules": null,
+        "stage2_start_epoch": null,
+        "stage2_start_step": null,
+        "flow_loss": "groot"
+    }
+}

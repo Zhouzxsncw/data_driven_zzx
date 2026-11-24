@@ -1,0 +1,97 @@
+{
+  "schema": "cosmos3.train.record",
+  "schema_version": 1,
+  "run_name": "tongbot_00036_nano_8h100",
+  "machine": "H100 8x (h100-103)",
+  "status": "finished",
+  "started_at": "2026-09-03T10:28:09+08:00",
+  "pid": 273955,
+  "remote_run": "/data1/cosmos-outputs/tongbot_00036_nano/cosmos3_action_tongbot/action_sft/tongbot_00036_nano_8h100",
+  "remote_latest": "iter_000003000",
+  "local_base": "/home/xk/VLA/h100_ckpts/cosmos3_00036",
+  "local_base_real": "/data/h100_ckpts/cosmos3_00036",
+  "local_latest_complete": "iter_000001500",
+  "dataset": "00036_20260804_RM_01_yj_21",
+  "dataset_path": "/data1/dataset/00036_20260804_RM_01_yj_21",
+  "dataset_episodes": 151,
+  "dataset_frames": 50440,
+  "prompt": "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box.",
+  "action_stats": "cosmos_framework/data/generator/action/normalizer_stats/tongbot_16d_00036.json",
+  "notes": [
+    "Cosmos3-Nano TongBot 00036 SFT, same recipe as 00073, different data/prompt/quantile stats.",
+    "16D absolute joint, concat_view, quantile. 151 episodes banana/lemon→black, vegetables→blue.",
+    "max_iter=3000, save_iter=500, lr=5e-5, warmup=200. H100 job still running past iter 1515.",
+    "Pulled without optim/. model/ is 114G DCP (8×15.18G). Root disk only had 111G free, so weights live on /data and h100_ckpts/cosmos3_00036 is a symlink.",
+    "Skipped full 1.6G train.log (dataloader spam); kept train.log.tail + config.yaml.",
+    "local_latest_complete=iter_000001500 (pulled 2026-09-04 13:04); H100 gateway timed out so no newer than 1500 confirmed.",
+    "H100 finished max_iter=3000 at 2026-09-05 07:43; GPUs idle; local only has iter_000001500 (114G). Need pull iter_000003000 for final weights.",
+    "Pulling iter_000003000 (final, ~114G model no optim) started 2026-09-05 14:58."
+  ],
+  "hparams": {
+    "model": "Cosmos3-Nano",
+    "experiment": "action_policy_tongbot_00036_nano",
+    "pretrained": "/data1/cosmos-pretrained/Cosmos3-Nano-DCP",
+    "action_dim": 16,
+    "chunk_length": 16,
+    "action_normalization": "quantile",
+    "format_prompt_as_json": true,
+    "lr": 5e-05,
+    "warmup_steps": 200,
+    "cycle_lengths": [
+      8000
+    ],
+    "max_iter": 3000,
+    "save_iter": 500,
+    "num_gpus": 8,
+    "fsdp_shard": 8,
+    "grad_accum_iter": 8,
+    "max_samples_per_batch": 32,
+    "image_size": 256,
+    "fps": 15
+  },
+  "loss_milestones": [
+    {
+      "iter": 1,
+      "loss": 15.3319,
+      "time": "2026-09-03T10:30:05+08:00"
+    },
+    {
+      "iter": 100,
+      "loss": 3.112,
+      "time": "2026-09-03T11:59:22+08:00"
+    },
+    {
+      "iter": 200,
+      "loss": 2.0534,
+      "time": "2026-09-03T13:29:23+08:00"
+    },
+    {
+      "iter": 500,
+      "loss": 1.7841,
+      "ckpt": "iter_000000500",
+      "time": "2026-09-03T18:00:44+08:00"
+    },
+    {
+      "iter": 1000,
+      "loss": 1.094,
+      "ckpt": "iter_000001000",
+      "time": "2026-09-04T01:33:31+08:00"
+    },
+    {
+      "iter": 1500,
+      "loss": 0.6245,
+      "ckpt": "iter_000001500",
+      "time": "2026-09-04T09:05:51+08:00"
+    }
+  ],
+  "local_pull": {
+    "target": "iter_000003000",
+    "status": "in_progress",
+    "log": "/data/h100_ckpts/cosmos3_00036/pull_3000.log",
+    "started_at": "2026-09-05T14:58:39+08:00"
+  },
+  "log": "/data1/cosmos-outputs/tongbot_00036_nano/train.log",
+  "local_log_tail": "/data/h100_ckpts/cosmos3_00036/train.log.tail",
+  "finished_at": "2026-09-05T07:43:00+08:00",
+  "updated_at": "2026-09-05T14:58:55+08:00"
+}

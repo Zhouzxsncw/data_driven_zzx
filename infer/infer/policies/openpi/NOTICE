@@ -1,0 +1,15 @@
+Vendored from openpi-agilex (Physical Intelligence / AgileX fork).
+
+- Upstream path: src/openpi
+- License: Apache License 2.0 (see LICENSE in this directory)
+- Purpose in this repo: in-process π₀.₅ inference only
+  (create_trained_policy / get_config / transforms). Training scripts and
+  openpi-client websocket packages are not vendored.
+
+Local patches (keep when re-syncing):
+- models_pytorch/gemma_pytorch.py: use transformers.cache_utils.Cache
+  instead of erroneous ``import pytest`` / ``pytest.Cache`` so inference
+  envs without pytest can import the package.
+
+Do not edit casually; prefer syncing from the upstream openpi-agilex tree
+when updating model/config code.

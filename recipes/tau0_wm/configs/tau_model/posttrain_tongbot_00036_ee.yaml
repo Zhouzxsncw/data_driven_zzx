@@ -1,0 +1,134 @@
+# τ0-WM (智元 · 罗剑岚团队, arXiv:2606.01027) 在 TongBot 00036 **EE 20D** 上的后训练配置。
+#
+# 骨架来自官方 configs/tau_model/posttrain_taco_play_abs.yaml，动作空间对齐
+# configs/deployment/tau_pretrain_rela_eef6d.yaml（预训练真正发布的那套契约）：
+#   action_type: relative / action_space: eef6d / action_in_dim: 20
+# 与 joint 版（posttrain_tongbot_00036.yaml）的区别在于：
+#   joint 16D 与预训练 20D 不同构 → load_checkpoints(ignore_mismatched_sizes=True)
+#   会把 action_proj_in / action_head **留作随机初始化**，等于丢掉动作专家预训练；
+#   EE 20D 同构 → 形状零 mismatch，视频专家 + 动作专家完整继承。
+# 代价是 00036 要先做 joint→EE（RM75 离线 FK + τ0-WM 列约定 rot6d），
+# 见 recipes/tau0_wm/convert_00036_ee.py。
+#
+# 承载机 h100-103（GWP 训练结束后自动接力），路径前缀统一 /data1/tau0wm。
+allow_tf32: false                         # [补] 官方 yaml 有这一项，runner/posttrain.py:504
+                                          # 无条件读 self.args.allow_tf32 —— 缺了会
+                                          # AttributeError（实测冒烟 exitcode 1）。bf16 训练下
+                                          # TF32 不影响精度路径，照官方写 false。
+batch_size: 1                             # [改] 官方 12。冒烟实测（09-15，GPU2 单卡 bs=1）：
+                                          # 静态 allocated 44.1G（bf16 参数+梯度+AdamW）
+                                          # + 峰值 reserved 64.78G/80G，每样本激活 ~20.7G
+                                          # → 80G 卡 bs≥2 必 OOM，只能 1/卡（6 卡全局 bs6）
+beta1: 0.9
+beta2: 0.95
+beta3: 0.999
+caption_dropout_p: 0.06
+data:
+  public_args:
+    action_chunk: 33
+    action_space: eef6d                   # [改] joint → eef6d（与预训练一致）
+    action_type: relative                 # [改] absolute → relative（body-frame 增量）
+    chunk: 9
+    ignore_seek: false
+  train:
+  - configs/data/tongbot/00036_ee_rela.yaml
+  val:
+  - configs/data/tongbot/00036_ee_rela.yaml
+dataloader_num_workers: 8                   # [改] h100 192 核 / 6 进程，留足解码线程
+deepspeed:
+  bf16:
+    enabled: true
+  fp16:
+    enabled: false
+  gradient_clipping: 1.0
+  zero_optimization:
+    stage: 1
+diffusion_model:
+  config:
+    action_dim: 1024
+    action_ffn_dim: 2048
+    action_in_dim: 20                     # [改] = 预训练 20，形状零 mismatch
+    action_max_seq_len: 60
+    action_num_heads: 16
+    cross_attn_norm: true
+    dim: 3072
+    eps: 1.0e-06
+    ffn_dim: 14336
+    freq_dim: 256
+    in_dim: 48
+    model_type: ti2v
+    num_heads: 24
+    num_layers: 30
+    out_dim: 48
+    patch_size:
+    - 1
+    - 2
+    - 2
+    qk_norm: true
+    text_dim: 4096
+    text_len: 512
+    use_ae: true
+    window_size:
+    - - -1
+      - 1
+  model_path: /data1/tau0wm/pretrained/tau-0-wm     # [改] h100 本地权重（sii-research/tau-0-wm）
+diffusion_model_class: WanModel
+diffusion_model_class_path: models/wan_2_2_models/transformers/model.py
+diffusion_scheduler_class: FlowUniPCMultistepScheduler
+diffusion_scheduler_class_path: models/wan_2_2_models/scheduler/fm_solvers_unipc.py
+epsilon: 1e-8
+flow_logit_mean: 0.0
+flow_logit_std: 1.0
+gradient_accumulation_steps: 1
+gradient_checkpointing: true                # [改] 官方 false；换卡数前先保住显存余量
+load_weights: true
+logging_dir: logs
+lr: 5e-5
+lr_num_cycles: 1
+lr_power: 1.0
+lr_scheduler: constant_with_warmup
+lr_warmup_steps: 1000
+max_grad_norm: 1.0
+mixed_precision: bf16
+model_name: tau_train_posttrain_tongbot_00036_ee
+nccl_timeout: 1000
+noisy_video: false
+num_inference_step: 10
+optimizer: adamw
+optimizer_8bit: false
+optimizer_torchao: false
+output_dir: /data1/tau0wm/outputs/tongbot_00036_ee   # [改] /data1 剩 1.5T
+sub_folder: tau0wm_vam5b_ee_rela_192x256_bs1         # [改] 固定 ckpt 目录名（默认是启动时 间戳，舰队监控不好定位）；bs 后缀随 batch_size 同步
+pin_memory: true
+pipeline_class: WanTI2V
+pipeline_class_path: models/wan_2_2_models/pipeline/textimage2video.py
+repeat_in_batch: 1
+report_to: None
+return_action: true
+return_video: true
+scale_lr: false
+seed: 3331459158
+steps_to_log: 20
+steps_to_val: 100000000                   # [改] 官方 2000；无人值守期间关掉 validate：
+                                          # 训练循环里 val 在 save **之前**（posttrain.py:883-892），
+                                          # validate 崩了会连带丢掉这一段训练且没有 ckpt。
+                                          # 要看生成效果就用 step_N 单独跑 infer。
+steps_to_save: 5000                         # [改] 官方 2000；每份 step ckpt ≈ 11 G
+text_encoder:
+  checkpoint_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/models_t5_umt5-xxl-enc-bf16.pth
+  text_len: 512
+  tokenizer_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/google/umt5-xxl
+textenc_class: T5EncoderModel
+textenc_class_path: models/wan_2_2_models/text_encoder/t5.py
+tracker_name: tau_trainer_action
+train_epochs: 10000
+train_mode: video+action                    # 视频专家 + 动作专家全量微调（非冻结、非 LoRA）
+train_steps: 30000                          # [改] 官方 1000000（=不限制）；显式写死便于舰队监控算进度
+use_color_jitter: true
+use_deepspeed: false
+vae_class: Wan2_2_VAE_Batch
+vae_class_path: models/wan_2_2_models/vae/vae2_2.py
+vae_encoding_mode: 3dvae
+vae_path: /data1/tau0wm/pretrained/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+val_shuffle: true
+weight_decay: 1e-5

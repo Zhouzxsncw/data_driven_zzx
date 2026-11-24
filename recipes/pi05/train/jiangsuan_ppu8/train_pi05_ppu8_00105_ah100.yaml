@@ -1,0 +1,54 @@
+# 江算-16/16b/16c · 8×PPU 一路。00105 水果蔬菜 · AH=100。
+# 81301 帧 → 211 step/ep × 100 = 21100 step。超参同 ppu8（global 384 / lr 1.5e-4）。
+# 槽 B：YAML=configs/train_pi05_ppu8_00105_ah100.yaml GPUS=8,9,10,11,12,13,14,15 PORT=29798 \
+#       NPROC=8 LOG=/workspace/openpi/train_00105_ppu8_ah100.log bash scripts/start_train_ppu8.sh
+config_name: pi05_aloha
+framework: pytorch
+
+exp_name: 00105_PI05_js8_bs384_lr1.5e-4_ah100_fixbase
+project_name: openpi
+checkpoint_base_dir: ./checkpoints
+assets_base_dir: ./assets
+
+batch_size: 384
+num_epochs: 10
+seed: 42
+num_workers: 8
+log_interval: 100
+save_every_epochs: 10
+keep_period: 5000
+overwrite: false
+resume: false
+wandb_enabled: false
+fsdp_devices: 8
+ema_decay: 0.99
+
+pytorch_training_precision: bfloat16
+pytorch_weight_path: /workspace/openpi/models/pi05_fixed
+
+model:
+  action_horizon: 100
+
+lr_schedule:
+  warmup_steps: 250
+  peak_lr: 1.0e-4
+  decay_lr: 1.0e-5
+  decay_steps: 21100
+
+optimizer:
+  b1: 0.9
+  b2: 0.95
+  eps: 1.0e-8
+  weight_decay: 1.0e-10
+  clip_gradient_norm: 1.0
+
+data:
+  repo_id: /workspace/openpi/datasets/00105_20260918_RM_01_YJ_DQ_21
+  assets:
+    assets_dir: /workspace/openpi/datasets/00105_20260918_RM_01_YJ_DQ_21
+    asset_id: "."
+  default_prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."
+  prompt_from_task: true
+  prompt_from_subtask: false
+  adapt_to_pi: false
+  delta_action_dims: [7, 7, -1, -1]

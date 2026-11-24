@@ -1,0 +1,10 @@
+# labels.json 示例 — 放入 test_XX/ 目录供任务级指标使用
+# 对齐 VLA-Arena: Task Success / Grasp Success / Intention Correct
+
+{
+  "task_success": false,
+  "grasp_success": false,
+  "intention_correct": true,
+  "human_interventions": 0,
+  "notes": "抓空，但手臂已接近目标区域"
+}

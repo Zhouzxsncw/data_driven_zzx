@@ -1,0 +1,7 @@
+# 对照：沿轨迹 Gauss-Newton / 双向 DLS（别名 ilqr）。
+mode: abort_rest
+solver: realman
+traj_opt: gn
+max_joint_step_deg: 40
+dls_lambda: 0.08
+traj_opt_iters: 8

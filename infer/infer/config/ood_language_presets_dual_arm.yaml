@@ -1,0 +1,40 @@
+# OOD language 固定测试集 — 双臂 + 左夹爪
+# baseline 为训练/默认 in-distribution prompt
+
+baseline_prompt: >
+  Use both arms to complete the pick and place task.
+
+presets:
+  - id: 1
+    name: test_1
+    category: 改变主操作臂
+    modification: "both arms -> left arm only"
+    task_prompt: >
+      Use the left arm to pick up the toy and put it into the yellow box.
+
+  - id: 2
+    name: test_2
+    category: 改变物体名字
+    modification: "toy -> object"
+    task_prompt: >
+      Use both arms to pick up the object and complete the pick and place task.
+
+  - id: 3
+    name: test_3
+    category: 改变目标颜色
+    modification: "yellow -> blue"
+    task_prompt: >
+      Use both arms to pick up the toy and put it into the blue box.
+
+  - id: 4
+    name: test_4
+    category: 完全随机TEXT
+    modification: "what's your name?"
+    task_prompt: "What's your name?"
+
+  - id: 5
+    name: test_5
+    category: 随机轻微扰动TEXT
+    modification: "complete -> finish"
+    task_prompt: >
+      Use both arms to finish the pick and place task.

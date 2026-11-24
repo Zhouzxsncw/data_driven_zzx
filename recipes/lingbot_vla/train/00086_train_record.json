@@ -1,0 +1,99 @@
+{
+  "schema": "lingbotvla.train.record",
+  "schema_version": 2,
+  "run_name": "00086_lingbotvla_v2_ppu4_bs512",
+  "machine": "jiangsuan-4 PPU-ZW810E x4",
+  "config_name": "tongbot_00086_ppu4_bs512",
+  "framework": "lingbotvla_v2",
+  "save_root": "/nvme2n1/outputs/00086_lingbotvla_v2_ppu4_bs512",
+  "dataset_path": "/nvme2n1/dataset/00086_20260827_RM_01_YJ_ZL_21_v30",
+  "pretrained_model_path": "/home/ubuntu/lingbot-vla-v2/pretrained/lingbot-vla-v2-6b",
+  "train_script": "tasks/vla/train_lingbotvla.py",
+  "config_file": "./configs/vla/tongbot/tongbot_00086_ppu4_bs512.yaml",
+  "local_ckpt_dir": "/home/xk/VLA/h100_ckpts/00086_lingbotvla/checkpoint/9287",
+  "local_weight_path": "/home/xk/VLA/h100_ckpts/00086_lingbotvla/checkpoint/9287/hf_ckpt",
+  "local_norm_path": "/home/xk/VLA/h100_ckpts/00086_lingbotvla/tongbot_16d_00086.json",
+  "pulled_step": 9287,
+  "pulled_at": "2026-09-03T15:07:58+08:00",
+  "remote_last": "global_step_9287",
+  "train_still_running": false,
+  "notes": [
+    "jiangsuan-4 00086 最终 ckpt global_step_9287（11:19 存完，13:16 停训改开 00073 EE）。",
+    "00073 EE 当时还在 epoch 1 step~139，没有可拉的 ckpt。",
+    "只拉推理所需 hf_ckpt（24G）+ extra_state；未拉 optimizer/model。",
+    "hf_ckpt 17 文件 + extra_state 4 文件，字节数全部与远程一致；index 6/6 shard 齐。",
+    "本机 checkpoint/9036 已不在。"
+  ],
+  "source_files": [
+    {
+      "role": "train_yaml",
+      "path": "/home/xk/VLA/h100_ckpts/00086_lingbotvla/lingbotvla_cli.yaml"
+    },
+    {
+      "role": "norm_stats",
+      "path": "/home/xk/VLA/h100_ckpts/00086_lingbotvla/tongbot_16d_00086.json"
+    },
+    {
+      "role": "robot_config",
+      "path": "/home/xk/VLA/h100_ckpts/00086_lingbotvla/tongbot_16d_00086.yaml"
+    }
+  ],
+  "hparams": {
+    "action_dim": 30,
+    "chunk_size": 50,
+    "global_batch_size": 512,
+    "micro_batch_size": 32,
+    "data_parallel_shard_size": 4,
+    "lr": 0.0005,
+    "vit_lr": 1e-06,
+    "weight_decay": 0,
+    "max_steps": 200000,
+    "img_size": 256,
+    "data_name": "tongbot_16d_00086",
+    "action_space": "joint",
+    "obs_space": "joint",
+    "control": "joint"
+  },
+  "ckpt_at_pull": {
+    "step": 9287,
+    "saved_at": "2026-09-03T11:19:00+08:00"
+  },
+  "updated_at": "2026-09-04T08:42:00.340191+08:00",
+  "dataset": {
+    "data_name": "tongbot_16d_00086",
+    "path": "/nvme2n1/dataset/00086_20260827_RM_01_YJ_ZL_21_v30",
+    "robot_config": "tongbot_16d_00086",
+    "robot_config_path": "/home/xk/VLA/lingbot-vla-v2/configs/robot_configs/tongbot_16d_00086.yaml",
+    "obs_space": "joint",
+    "obs_layout": "16D [L7|R7|Lgrip|Rgrip]",
+    "action_space": "joint",
+    "action_layout": "16D joint [L7|R7|Lgrip|Rgrip] (arm delta if subtract_state)",
+    "control": "joint",
+    "action_features": [
+      "action.arm.position",
+      "action.effector.position"
+    ],
+    "state_features": [
+      "observation.state.arm.position",
+      "observation.state.effector.position"
+    ],
+    "subtract_state": {
+      "action.arm.position": true,
+      "action.effector.position": false
+    },
+    "relative_type": {
+      "action.arm.position": "none"
+    },
+    "image_origin_keys": {
+      "observation.images.camera_top": "observation.images.front",
+      "observation.images.camera_wrist_left": "observation.images.left",
+      "observation.images.camera_wrist_right": "observation.images.right"
+    },
+    "cameras": [],
+    "joints": [],
+    "norm_stats": "assets/norm_stats/tongbot_16d_00086.json"
+  },
+  "action_space": "joint",
+  "obs_space": "joint",
+  "control": "joint"
+}

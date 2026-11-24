@@ -1,0 +1,4 @@
+test,task_success,grasp_success,intention_correct,human_interventions,notes
+test_01,false,false,true,0,抓空，手臂有运动但未闭合夹爪
+test_02,true,true,true,0,成功抓取并放入黄色托盘
+01,true,false,true,0,也可用数字 01 表示 test_01

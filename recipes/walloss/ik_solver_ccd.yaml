@@ -1,0 +1,4 @@
+# 对照：循环坐标下降。离线慢且到位率差，不建议真机。
+mode: abort_rest
+solver: ccd
+max_joint_step_deg: 40

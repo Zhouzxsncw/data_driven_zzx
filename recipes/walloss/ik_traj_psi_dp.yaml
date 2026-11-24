@@ -1,0 +1,6 @@
+# 对照：整段 EE 在 ψ 上做 DP。WALLOSS_IK_CONFIG 指向本文件。
+mode: abort_rest
+solver: realman
+traj_opt: psi_dp
+max_joint_step_deg: 40
+arm_angle_step_deg: 15

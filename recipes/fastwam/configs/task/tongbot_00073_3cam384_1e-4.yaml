@@ -1,0 +1,37 @@
+# @package _global_
+# gpu-node1 单卡 RTX PRO 6000 96GB · TongBot 00073
+
+defaults:
+  - override /data: tongbot_3cam
+  - override /model: fastwam
+  - _self_
+
+data:
+  train:
+    dataset_dirs:
+      - /data/datasets/00073_20260818_RM_01_yj_21
+    text_embedding_cache_dir: ./data/text_embeds_cache/tongbot_00073
+
+batch_size: 4
+num_workers: 4
+
+model:
+  mot_checkpoint_mixed_attn: false
+  redirect_common_files: false
+  load_text_encoder: false
+
+lr_scheduler_type: "cosine"
+learning_rate: 1e-4
+num_epochs: 10
+max_steps: 30000
+log_every: 10
+save_every: 2500
+eval_every: 30000
+
+gradient_accumulation_steps: 4
+weight_decay: 1e-2
+resume: null
+
+wandb:
+  enabled: false
+  mode: offline

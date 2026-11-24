@@ -1,0 +1,65 @@
+# LingBot-VA 00036 本机推理（NVIDIA RTX PRO 6000 Blackwell 96GB）
+# 权重: H100 00036_va_h100_16ch_w30 checkpoint_step_10000
+# 架构对齐该次训练：attn_window=30。
+# 采样按论文 arXiv:2601.21998：视频 Euler 3 步、动作 10 步，视频 CFG=5、动作 CFG=1。
+# 注意：00036 微调时 inference cfg 是 guidance=1；开 CFG=5 依赖训练 cfg_prob=0.1 的无条件样本。
+# 训练记录固化在权重旁: /home/xk/VLA/h100_ckpts/00036_va_w30/train_record.json
+# 每次真机 test 会写入 pipeline_record.json（训练+推理+对照差）。
+
+experiment_name: lingbot_va_00036_infer_local
+
+model:
+  pretrained_model_path: /home/xk/VLA/h100_ckpts/00036_va_w30/checkpoint_step_10000/transformer
+  base_model_path: /home/xk/VLA/lingbot-va-pretrained/lingbot-va-base
+  param_dtype: bfloat16
+  # 本机 ~96GB，不必像 4090 那样把 T5 卸 CPU
+  enable_offload: false
+  offload_vae: false
+
+server:
+  host: "0.0.0.0"
+  port: 1234
+  infer_mode: server
+
+architecture:
+  env_type: cobot_16d_tshape
+  attn_window: 30  # 与 w30 训练一致；旧 16ch 才是 72
+  frame_chunk_size: 2
+  height: 256
+  width: 320
+  patch_size: [1, 2, 2]
+
+action:
+  action_dim: 30
+  action_per_frame: 16
+  used_action_channel_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  action_norm_method: quantiles
+
+inference:
+  # 论文：Euler，视频 3 步积到 s=0.6、动作 10 步积到 s=1.0；视频 CFG=5、动作 CFG=1。
+  # video_exec_step=-1：按 num_inference_steps=3 整段走完（开源 franka/demo 是 5/10）。
+  num_inference_steps: 3
+  video_exec_step: -1
+  action_num_inference_steps: 10
+  snr_shift: 5.0
+  action_snr_shift: 1.0
+  guidance_scale: 5
+  action_guidance_scale: 1
+  num_chunks_to_infer: 4
+  decode_pred_video: false
+  decode_pred_video_max_chunks: 8
+
+camera:
+  obs_cam_keys:
+    - observation.images.front
+    - observation.images.left
+    - observation.images.right
+
+norm_stat:
+  q01: [-2.1698, -1.6221, 0.1419, -1.1086, 0.3176, -1.8687, -1.0977, 1.3543, 1.0418, -0.5126, 0.0831, -1.3176, 0.6479, 0.2334, 0.2332, 0.1985, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  q99: [-1.3761, -1.0375, 0.8251, -0.1176, 1.0025, -0.5569, -0.1092, 2.0398, 1.6888, 0.2272, 0.9675, -0.5060, 1.8588, 1.1173, 0.9990, 0.9983, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+test:
+  input_img_path: /home/xk/VLA/lingbot-va-infer/example_images
+  save_root: /home/xk/VLA/lingbot-va-infer/results
+  prompt: "With both hands, pick up the yellow banana and the yellow lemon and put them into the black box; then take the green vegetables and place them into the blue box."

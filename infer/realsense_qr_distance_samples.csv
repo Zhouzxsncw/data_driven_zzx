@@ -1,0 +1,301 @@
+frame_index,timestamp_ms,ok,detected_count,left_label,right_label,left_center_x,left_center_y,right_center_x,right_center_y,center_distance_px,normalized_distance,note
+1,430219.837,False,1,,,,,,,,,need two QR detections
+2,430253.009,False,1,,,,,,,,,need two QR detections
+3,430286.18200000003,False,1,,,,,,,,,need two QR detections
+4,430352.527,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+5,430385.699,False,1,,,,,,,,,need two QR detections
+6,430418.87200000003,False,1,,,,,,,,,need two QR detections
+7,430452.044,False,1,,,,,,,,,need two QR detections
+8,430485.217,False,1,,,,,,,,,need two QR detections
+9,430518.389,False,1,,,,,,,,,need two QR detections
+10,430551.56200000003,False,1,,,,,,,,,need two QR detections
+11,430584.734,False,1,,,,,,,,,need two QR detections
+12,430617.907,False,1,,,,,,,,,need two QR detections
+13,430651.079,False,1,,,,,,,,,need two QR detections
+14,430684.25200000004,False,1,,,,,,,,,need two QR detections
+15,430717.424,False,1,,,,,,,,,need two QR detections
+16,430750.597,False,1,,,,,,,,,need two QR detections
+17,430783.77,False,1,,,,,,,,,need two QR detections
+18,430816.942,False,1,,,,,,,,,need two QR detections
+19,430850.115,False,1,,,,,,,,,need two QR detections
+20,430883.287,False,1,,,,,,,,,need two QR detections
+21,430916.46,False,1,,,,,,,,,need two QR detections
+22,430949.632,False,1,,,,,,,,,need two QR detections
+23,430982.805,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+24,431015.977,False,1,,,,,,,,,need two QR detections
+25,431049.15,False,1,,,,,,,,,need two QR detections
+26,431082.322,False,1,,,,,,,,,need two QR detections
+27,431115.495,False,1,,,,,,,,,need two QR detections
+28,431148.667,False,1,,,,,,,,,need two QR detections
+29,431181.84,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+30,431215.012,False,1,,,,,,,,,need two QR detections
+31,431248.185,False,1,,,,,,,,,need two QR detections
+32,431281.357,False,1,,,,,,,,,need two QR detections
+33,431314.53,False,1,,,,,,,,,need two QR detections
+34,431347.702,False,1,,,,,,,,,need two QR detections
+35,431380.875,False,1,,,,,,,,,need two QR detections
+36,431414.048,False,1,,,,,,,,,need two QR detections
+37,431447.22000000003,False,1,,,,,,,,,need two QR detections
+38,431480.393,False,1,,,,,,,,,need two QR detections
+39,431513.565,False,1,,,,,,,,,need two QR detections
+40,431546.738,False,1,,,,,,,,,need two QR detections
+41,431579.91000000003,False,1,,,,,,,,,need two QR detections
+42,431613.083,False,1,,,,,,,,,need two QR detections
+43,431646.255,False,1,,,,,,,,,need two QR detections
+44,431679.428,False,1,,,,,,,,,need two QR detections
+45,431712.60000000003,False,1,,,,,,,,,need two QR detections
+46,431745.773,False,1,,,,,,,,,need two QR detections
+47,431778.945,False,1,,,,,,,,,need two QR detections
+48,431812.118,False,1,,,,,,,,,need two QR detections
+49,431845.29000000004,False,1,,,,,,,,,need two QR detections
+50,431878.463,False,1,,,,,,,,,need two QR detections
+51,431911.635,False,1,,,,,,,,,need two QR detections
+52,431944.808,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+53,431977.98,True,2,0,1,460.75,274.25,389.25,253.5,74.45006715913694,4.562174817788461,
+54,432011.153,False,1,,,,,,,,,need two QR detections
+55,432044.326,False,1,,,,,,,,,need two QR detections
+56,432077.498,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+57,432110.67100000003,False,1,,,,,,,,,need two QR detections
+58,432143.843,False,1,,,,,,,,,need two QR detections
+59,432177.016,False,1,,,,,,,,,need two QR detections
+60,432210.188,False,1,,,,,,,,,need two QR detections
+61,432243.36100000003,False,1,,,,,,,,,need two QR detections
+62,432276.533,False,1,,,,,,,,,need two QR detections
+63,432309.706,False,1,,,,,,,,,need two QR detections
+64,432342.878,False,1,,,,,,,,,need two QR detections
+65,432376.05100000004,False,1,,,,,,,,,need two QR detections
+66,432409.223,False,1,,,,,,,,,need two QR detections
+67,432442.396,False,1,,,,,,,,,need two QR detections
+68,432475.568,False,1,,,,,,,,,need two QR detections
+69,432508.741,False,1,,,,,,,,,need two QR detections
+70,432541.913,False,1,,,,,,,,,need two QR detections
+71,432575.086,False,1,,,,,,,,,need two QR detections
+72,432608.259,False,1,,,,,,,,,need two QR detections
+73,432674.604,False,1,,,,,,,,,need two QR detections
+74,432707.776,False,1,,,,,,,,,need two QR detections
+75,432740.949,False,1,,,,,,,,,need two QR detections
+76,432774.121,False,1,,,,,,,,,need two QR detections
+77,432807.294,False,1,,,,,,,,,need two QR detections
+78,432840.466,False,1,,,,,,,,,need two QR detections
+79,432873.639,False,1,,,,,,,,,need two QR detections
+80,432906.811,False,1,,,,,,,,,need two QR detections
+81,432939.984,False,1,,,,,,,,,need two QR detections
+82,432973.156,False,1,,,,,,,,,need two QR detections
+83,433006.329,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+84,433039.501,False,1,,,,,,,,,need two QR detections
+85,433072.674,False,1,,,,,,,,,need two QR detections
+86,433105.846,False,1,,,,,,,,,need two QR detections
+87,433139.01900000003,False,1,,,,,,,,,need two QR detections
+88,433172.191,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+89,433205.364,True,2,0,1,460.75,274.25,389.25,253.5,74.45006715913694,4.562174817788461,
+90,433238.537,False,1,,,,,,,,,need two QR detections
+91,433271.70900000003,False,1,,,,,,,,,need two QR detections
+92,433304.882,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+93,433338.054,False,1,,,,,,,,,need two QR detections
+94,433371.227,False,1,,,,,,,,,need two QR detections
+95,433404.39900000003,False,1,,,,,,,,,need two QR detections
+96,433437.572,False,1,,,,,,,,,need two QR detections
+97,433470.744,False,1,,,,,,,,,need two QR detections
+98,433503.917,False,1,,,,,,,,,need two QR detections
+99,433537.08900000004,False,1,,,,,,,,,need two QR detections
+100,433570.262,False,1,,,,,,,,,need two QR detections
+101,433603.434,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+102,433636.607,False,1,,,,,,,,,need two QR detections
+103,433669.779,False,1,,,,,,,,,need two QR detections
+104,433702.952,False,1,,,,,,,,,need two QR detections
+105,433736.124,False,1,,,,,,,,,need two QR detections
+106,433769.297,False,1,,,,,,,,,need two QR detections
+107,433802.469,False,1,,,,,,,,,need two QR detections
+108,433835.642,False,1,,,,,,,,,need two QR detections
+109,433868.815,False,1,,,,,,,,,need two QR detections
+110,433901.987,False,1,,,,,,,,,need two QR detections
+111,433935.16000000003,False,1,,,,,,,,,need two QR detections
+112,433968.332,False,1,,,,,,,,,need two QR detections
+113,434001.505,False,1,,,,,,,,,need two QR detections
+114,434034.677,False,1,,,,,,,,,need two QR detections
+115,434067.85000000003,False,1,,,,,,,,,need two QR detections
+116,434101.022,False,1,,,,,,,,,need two QR detections
+117,434134.195,False,1,,,,,,,,,need two QR detections
+118,434167.367,False,1,,,,,,,,,need two QR detections
+119,434200.54000000004,False,1,,,,,,,,,need two QR detections
+120,434233.712,False,1,,,,,,,,,need two QR detections
+121,434266.885,False,1,,,,,,,,,need two QR detections
+122,434300.05700000003,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+123,434333.23,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+124,434366.402,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+125,434399.575,False,1,,,,,,,,,need two QR detections
+126,434432.74700000003,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+127,434465.92,False,1,,,,,,,,,need two QR detections
+128,434499.093,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+129,434532.265,False,1,,,,,,,,,need two QR detections
+130,434565.438,False,1,,,,,,,,,need two QR detections
+131,434598.61,False,1,,,,,,,,,need two QR detections
+132,434631.783,False,1,,,,,,,,,need two QR detections
+133,434664.955,False,1,,,,,,,,,need two QR detections
+134,434698.128,False,1,,,,,,,,,need two QR detections
+135,434731.3,False,1,,,,,,,,,need two QR detections
+136,434764.473,False,1,,,,,,,,,need two QR detections
+137,434797.645,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+138,434830.818,False,1,,,,,,,,,need two QR detections
+139,434863.99,True,2,0,1,460.75,274.25,389.25,253.5,74.45006715913694,4.562174817788461,
+140,434897.163,True,2,0,1,460.75,274.25,389.5,253.5,74.21000606387254,4.521403520045044,
+141,434930.335,False,1,,,,,,,,,need two QR detections
+142,434963.50800000003,False,1,,,,,,,,,need two QR detections
+143,434996.68,False,1,,,,,,,,,need two QR detections
+144,435029.853,False,1,,,,,,,,,need two QR detections
+145,435063.026,False,1,,,,,,,,,need two QR detections
+146,435096.19800000003,False,1,,,,,,,,,need two QR detections
+147,435129.371,False,1,,,,,,,,,need two QR detections
+148,435162.543,False,1,,,,,,,,,need two QR detections
+149,435195.716,False,1,,,,,,,,,need two QR detections
+150,435228.88800000004,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+151,435262.061,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+152,435295.233,False,1,,,,,,,,,need two QR detections
+153,435328.406,False,1,,,,,,,,,need two QR detections
+154,435361.57800000004,False,1,,,,,,,,,need two QR detections
+155,435394.751,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+156,435427.923,False,1,,,,,,,,,need two QR detections
+157,435461.096,False,1,,,,,,,,,need two QR detections
+158,435494.268,False,1,,,,,,,,,need two QR detections
+159,435527.441,False,1,,,,,,,,,need two QR detections
+160,435560.613,False,1,,,,,,,,,need two QR detections
+161,435593.786,False,1,,,,,,,,,need two QR detections
+162,435626.958,False,1,,,,,,,,,need two QR detections
+163,435660.131,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+164,435693.304,False,1,,,,,,,,,need two QR detections
+165,435726.476,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+166,435759.64900000003,False,1,,,,,,,,,need two QR detections
+167,435792.821,False,1,,,,,,,,,need two QR detections
+168,435825.994,False,1,,,,,,,,,need two QR detections
+169,435859.166,False,1,,,,,,,,,need two QR detections
+170,435892.33900000004,False,1,,,,,,,,,need two QR detections
+171,435925.511,False,1,,,,,,,,,need two QR detections
+172,435958.684,False,1,,,,,,,,,need two QR detections
+173,435991.856,False,1,,,,,,,,,need two QR detections
+174,436025.029,False,1,,,,,,,,,need two QR detections
+175,436058.201,False,1,,,,,,,,,need two QR detections
+176,436091.374,False,1,,,,,,,,,need two QR detections
+177,436124.54600000003,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+178,436157.719,False,1,,,,,,,,,need two QR detections
+179,436190.891,False,1,,,,,,,,,need two QR detections
+180,436224.064,False,1,,,,,,,,,need two QR detections
+181,436257.23600000003,False,1,,,,,,,,,need two QR detections
+182,436290.409,False,1,,,,,,,,,need two QR detections
+183,436323.582,False,1,,,,,,,,,need two QR detections
+184,436356.754,False,1,,,,,,,,,need two QR detections
+185,436389.927,False,1,,,,,,,,,need two QR detections
+186,436423.099,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+187,436456.272,False,1,,,,,,,,,need two QR detections
+188,436489.444,False,1,,,,,,,,,need two QR detections
+189,436522.617,False,1,,,,,,,,,need two QR detections
+190,436555.789,False,1,,,,,,,,,need two QR detections
+191,436588.962,False,1,,,,,,,,,need two QR detections
+192,436622.134,False,1,,,,,,,,,need two QR detections
+193,436655.30700000003,False,1,,,,,,,,,need two QR detections
+194,436688.479,False,1,,,,,,,,,need two QR detections
+195,436721.652,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+196,436754.824,False,1,,,,,,,,,need two QR detections
+197,436787.99700000003,False,1,,,,,,,,,need two QR detections
+198,436821.169,False,1,,,,,,,,,need two QR detections
+199,436854.342,False,1,,,,,,,,,need two QR detections
+200,436887.514,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+201,436920.68700000003,False,1,,,,,,,,,need two QR detections
+202,436953.86,False,1,,,,,,,,,need two QR detections
+203,436987.032,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+204,437020.205,False,1,,,,,,,,,need two QR detections
+205,437053.37700000004,False,1,,,,,,,,,need two QR detections
+206,437086.55,False,1,,,,,,,,,need two QR detections
+207,437119.722,False,1,,,,,,,,,need two QR detections
+208,437152.895,False,1,,,,,,,,,need two QR detections
+209,437186.067,False,1,,,,,,,,,need two QR detections
+210,437219.24,False,1,,,,,,,,,need two QR detections
+211,437252.412,False,1,,,,,,,,,need two QR detections
+212,437285.585,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+213,437318.757,False,1,,,,,,,,,need two QR detections
+214,437351.93,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+215,437385.102,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+216,437418.275,False,1,,,,,,,,,need two QR detections
+217,437451.447,False,1,,,,,,,,,need two QR detections
+218,437484.62,False,1,,,,,,,,,need two QR detections
+219,437517.793,False,1,,,,,,,,,need two QR detections
+220,437550.965,False,1,,,,,,,,,need two QR detections
+221,437584.13800000004,True,2,0,1,460.75,274.25,389.25,253.5,74.45006715913694,4.562174817788461,
+222,437617.31,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+223,437650.483,False,1,,,,,,,,,need two QR detections
+224,437683.655,False,1,,,,,,,,,need two QR detections
+225,437716.82800000004,True,2,0,1,460.75,274.25,389.25,253.5,74.45006715913694,4.562174817788461,
+226,437750.0,False,1,,,,,,,,,need two QR detections
+227,437783.173,False,1,,,,,,,,,need two QR detections
+228,437816.34500000003,False,1,,,,,,,,,need two QR detections
+229,437849.518,False,1,,,,,,,,,need two QR detections
+230,437882.69,False,1,,,,,,,,,need two QR detections
+231,437915.863,False,1,,,,,,,,,need two QR detections
+232,437949.03500000003,False,1,,,,,,,,,need two QR detections
+233,437982.208,False,1,,,,,,,,,need two QR detections
+234,438015.38,False,1,,,,,,,,,need two QR detections
+235,438048.553,False,1,,,,,,,,,need two QR detections
+236,438081.72500000003,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+237,438114.898,False,1,,,,,,,,,need two QR detections
+238,438148.071,False,1,,,,,,,,,need two QR detections
+239,438181.243,False,1,,,,,,,,,need two QR detections
+240,438214.416,False,1,,,,,,,,,need two QR detections
+241,438247.588,False,1,,,,,,,,,need two QR detections
+242,438280.761,False,1,,,,,,,,,need two QR detections
+243,438313.933,False,1,,,,,,,,,need two QR detections
+244,438347.106,False,1,,,,,,,,,need two QR detections
+245,438380.278,False,1,,,,,,,,,need two QR detections
+246,438413.451,False,1,,,,,,,,,need two QR detections
+247,438446.623,False,1,,,,,,,,,need two QR detections
+248,438479.79600000003,False,1,,,,,,,,,need two QR detections
+249,438512.968,False,1,,,,,,,,,need two QR detections
+250,438546.141,False,1,,,,,,,,,need two QR detections
+251,438579.313,False,1,,,,,,,,,need two QR detections
+252,438612.48600000003,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+253,438645.658,False,1,,,,,,,,,need two QR detections
+254,438678.831,False,1,,,,,,,,,need two QR detections
+255,438712.003,False,1,,,,,,,,,need two QR detections
+256,438745.17600000004,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+257,438778.349,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+258,438811.521,False,1,,,,,,,,,need two QR detections
+259,438844.694,False,1,,,,,,,,,need two QR detections
+260,438877.86600000004,True,2,0,1,460.75,274.0,389.5,253.5,74.14049163581261,4.517168204669195,
+261,438911.039,False,1,,,,,,,,,need two QR detections
+262,438944.211,False,1,,,,,,,,,need two QR detections
+263,438977.384,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+264,439010.556,False,1,,,,,,,,,need two QR detections
+265,439043.729,False,1,,,,,,,,,need two QR detections
+266,439076.901,False,1,,,,,,,,,need two QR detections
+267,439110.074,False,1,,,,,,,,,need two QR detections
+268,439143.246,False,1,,,,,,,,,need two QR detections
+269,439176.419,False,1,,,,,,,,,need two QR detections
+270,439209.591,False,1,,,,,,,,,need two QR detections
+271,439242.764,False,1,,,,,,,,,need two QR detections
+272,439275.936,False,1,,,,,,,,,need two QR detections
+273,439309.109,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+274,439342.281,False,1,,,,,,,,,need two QR detections
+275,439375.454,False,1,,,,,,,,,need two QR detections
+276,439408.62700000004,False,1,,,,,,,,,need two QR detections
+277,439441.799,False,1,,,,,,,,,need two QR detections
+278,439474.972,False,1,,,,,,,,,need two QR detections
+279,439508.14400000003,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+280,439541.317,False,1,,,,,,,,,need two QR detections
+281,439574.489,False,1,,,,,,,,,need two QR detections
+282,439607.662,False,1,,,,,,,,,need two QR detections
+283,439640.83400000003,False,1,,,,,,,,,need two QR detections
+284,439674.007,False,1,,,,,,,,,need two QR detections
+285,439707.179,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+286,439740.352,False,1,,,,,,,,,need two QR detections
+287,439773.52400000003,False,1,,,,,,,,,need two QR detections
+288,439806.697,False,1,,,,,,,,,need two QR detections
+289,439839.869,False,1,,,,,,,,,need two QR detections
+290,439873.042,False,1,,,,,,,,,need two QR detections
+291,439906.21400000004,False,1,,,,,,,,,need two QR detections
+292,439939.387,False,1,,,,,,,,,need two QR detections
+293,439972.56,False,1,,,,,,,,,need two QR detections
+294,440005.732,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+295,440038.905,False,1,,,,,,,,,need two QR detections
+296,440072.077,False,1,,,,,,,,,need two QR detections
+297,440105.25,False,1,,,,,,,,,need two QR detections
+298,440138.422,False,1,,,,,,,,,need two QR detections
+299,440171.59500000003,True,2,0,1,460.75,274.0,389.25,253.5,74.38077708655645,4.557928838754302,
+300,440204.767,False,1,,,,,,,,,need two QR detections
