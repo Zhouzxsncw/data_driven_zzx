@@ -20,8 +20,19 @@ from infer.io.pico_input import PicoSubscriber
 def follow_arms(robot, subscriber, gripper=None) -> None:
     recovery = PicoRecovery()
     teleop = None
+    # PICO 输入接收线程持续保留最新帧，这里用固定周期消费，避免
+    # 通过低频 sleep 人为增加控制延迟。实际周期由 SDK 下发耗时决定。
+    control_period = 0.01  # 100 Hz target loop
+    next_tick = time.perf_counter()
     try:
         while True:
+            now = time.perf_counter()
+            if now < next_tick:
+                time.sleep(next_tick - now)
+            next_tick += control_period
+            # 处理偶发的 SDK 或系统调度抖动，避免落后后连续空转追赶。
+            if next_tick < time.perf_counter() - control_period:
+                next_tick = time.perf_counter() + control_period
             status = subscriber.poll()
             previous = recovery.mode
             recovery.observe(status, allowed=True, wall_time=time.time())
@@ -57,7 +68,6 @@ def follow_arms(robot, subscriber, gripper=None) -> None:
                     else:
                         if goals is not None:
                             print(f"[PICO] 左右夹爪目标 {goals}", flush=True)
-            time.sleep(0.05)
     finally:
         if recovery.mode in (PicoMode.MANUAL, PicoMode.INTERVENING):
             robot.stop_pico_motion()
